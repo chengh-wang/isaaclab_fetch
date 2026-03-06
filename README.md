@@ -1,82 +1,169 @@
-# Template for Isaac Lab Projects
+# Fetch Robot Isaac Lab Project
 
-[![IsaacSim](https://img.shields.io/badge/IsaacSim-4.0.0-silver.svg)](https://docs.omniverse.nvidia.com/isaacsim/latest/overview.html)
-[![Isaac Lab](https://img.shields.io/badge/IsaacLab-1.0.0-silver)](https://isaac-sim.github.io/IsaacLab)
-[![Python](https://img.shields.io/badge/python-3.10-blue.svg)](https://docs.python.org/3/whatsnew/3.10.html)
-[![Linux platform](https://img.shields.io/badge/platform-linux--64-orange.svg)](https://releases.ubuntu.com/20.04/)
-[![Windows platform](https://img.shields.io/badge/platform-windows--64-orange.svg)](https://www.microsoft.com/en-us/)
-[![pre-commit](https://img.shields.io/badge/pre--commit-enabled-brightgreen?logo=pre-commit&logoColor=white)](https://pre-commit.com/)
-[![License](https://img.shields.io/badge/license-MIT-yellow.svg)](https://opensource.org/license/mit)
+RL training environments for the Fetch mobile manipulator in Isaac Lab. Tasks include reaching, lifting, and drawer opening.
 
-## Overview
+## Prerequisites
 
-This repository serves as a template for building projects or extensions based on Isaac Lab. It allows you to develop in an isolated environment, outside of the core Isaac Lab repository.
+- Isaac Lab installed and working (see [Isaac Lab installation guide](https://isaac-sim.github.io/IsaacLab/source/setup/installation/index.html))
+- The Isaac Lab Python environment activated (e.g. `conda activate isaaclab` or whichever env you use)
 
-**Key Features:**
+## Installation
 
-- `Isolation` Work outside the core Isaac Lab repository, ensuring that your development efforts remain self-contained.
-- `Flexibility` This template is set up to allow your code to be run as an extension in Omniverse.
-
-**Keywords:** extension, template, isaaclab
-
-
-### Installation
-
-
-- Throughout the repository, the name `fetch_project` only serves as an example and we provide a script to rename all the references to it automatically:
-
-```
-# Rename all occurrences of fetch_project (in files/directories) to your_fancy_extension_name
-python scripts/rename_template.py your_fancy_extension_name
-```
-
-- Install Isaac Lab, see the [installation guide](https://isaac-sim.github.io/IsaacLab/source/setup/installation/index.html).
-
-- Using a python interpreter that has Isaac Lab installed, install the library
-
-```
-cd ext/fetch_project
-python -m pip install -e .
-```
-
-#### Set up IDE (Optional)
-
-To setup the IDE, please follow these instructions:
-
-- Run VSCode Tasks, by pressing `Ctrl+Shift+P`, selecting `Tasks: Run Task` and running the `setup_python_env` in the drop down menu. When running this task, you will be prompted to add the absolute path to your Isaac Lab installation.
-
-If everything executes correctly, it should create a file .python.env in the .vscode directory. The file contains the python paths to all the extensions provided by Isaac Sim and Omniverse. This helps in indexing all the python modules for intelligent suggestions while writing code.
-
-
-#### Setup as Omniverse Extension (Optional)
-
-We provide an example UI extension that will load upon enabling your extension defined in `exts/fetch_project/fetch_project/ui_extension_example.py`. For more information on UI extensions, enable and check out the source code of the `omni.isaac.ui_template` extension and refer to the introduction on [Isaac Sim Workflows 1.2.3. GUI](https://docs.omniverse.nvidia.com/isaacsim/latest/introductory_tutorials/tutorial_intro_workflows.html#gui).
-
-To enable your extension, follow these steps:
-
-1. **Add the search path of your repository** to the extension manager:
-    - Navigate to the extension manager using `Window` -> `Extensions`.
-    - Click on the **Hamburger Icon** (☰), then go to `Settings`.
-    - In the `Extension Search Paths`, enter the absolute path to `IsaacLabExtensionTemplate/exts`
-    - If not already present, in the `Extension Search Paths`, enter the path that leads to Isaac Lab's extension directory directory (`IsaacLab/source/extensions`)
-    - Click on the **Hamburger Icon** (☰), then click `Refresh`.
-
-2. **Search and enable your extension**:
-    - Find your extension under the `Third Party` category.
-    - Toggle it to enable your extension.
-
-
-## Code formatting
-
-We have a pre-commit template to automatically format your code.
-To install pre-commit:
+From the repo root, install the extension package in editable mode:
 
 ```bash
-pip install pre-commit
+cd exts/fetch_project
+pip install -e .
 ```
 
-Then you can run pre-commit with:
+This installs the `fetch_project` package which registers all Fetch gym environments.
+
+## Training
+
+All training scripts are under `scripts/rsl_rl/`. Run from the **repo root**.
+
+### Quick Start (Keypoint Reach)
 
 ```bash
-pre-commit run --all-files
+python scripts/rsl_rl/train.py \
+  --task Isaac-Reach-Fetch-Keypoint-v0 \
+  --headless \
+  --num_envs 1024 \
+  --logger wandb \
+  --log_project_name fetch_reach_keypoint \
+  --enable_cameras \
+  --video \
+  --video_length 1000 \
+  --video_interval 5000
 ```
+
+### Minimal (no logging, no video)
+
+```bash
+python scripts/rsl_rl/train.py \
+  --task Isaac-Reach-Fetch-Keypoint-v0 \
+  --headless \
+  --num_envs 1024
+```
+
+### Key Arguments
+
+| Argument | Description |
+|---|---|
+| `--task` | Gym environment ID (see table below) |
+| `--num_envs` | Number of parallel environments |
+| `--headless` | Run without GUI |
+| `--logger wandb` | Use Weights & Biases for logging (also supports `tensorboard`, `neptune`) |
+| `--log_project_name` | W&B / Neptune project name |
+| `--enable_cameras` | Required when using `--video` |
+| `--video` | Record training videos |
+| `--video_length` | Video length in env steps (default: 200) |
+| `--video_interval` | Steps between recordings (default: 2000) |
+| `--seed` | RNG seed |
+| `--resume True` | Resume from last checkpoint |
+| `--load_run` | Specific run folder name to resume from |
+| `--checkpoint` | Specific checkpoint file to resume from |
+| `--experiment_name` | Override experiment folder name (default: `reach_fetch`) |
+
+### Resume Training
+
+```bash
+python scripts/rsl_rl/train.py \
+  --task Isaac-Reach-Fetch-Keypoint-v0 \
+  --headless \
+  --num_envs 1024 \
+  --resume True \
+  --load_run <run_folder_name>
+```
+
+Logs are written to `logs/rsl_rl/<experiment_name>/`.
+
+## Playback / Evaluation
+
+```bash
+python scripts/rsl_rl/play.py \
+  --task Isaac-Reach-Fetch-Keypoint-Play-v0 \
+  --num_envs 1
+```
+
+To record a video during playback:
+
+```bash
+python scripts/rsl_rl/play.py \
+  --task Isaac-Reach-Fetch-Keypoint-Play-v0 \
+  --num_envs 1 \
+  --video \
+  --video_length 300
+```
+
+By default, `play.py` loads the latest checkpoint from the latest run under `logs/rsl_rl/reach_fetch/`. Use `--load_run` and `--checkpoint` to specify a different run or checkpoint.
+
+## Available Environments
+
+### Reach
+
+| Task ID | Description |
+|---|---|
+| `Isaac-Reach-Fetch-v0` | Joint-position reach (original) |
+| `Isaac-Reach-Fetch-Play-v0` | Playback variant of above |
+| `Isaac-Reach-Fetch-Simple-v0` | Simplified reach |
+| `Isaac-Reach-Fetch-Simple-Play-v0` | Playback variant of above |
+| `Isaac-Reach-Fetch-Keypoint-v0` | Keypoint-based reach |
+| `Isaac-Reach-Fetch-Keypoint-Play-v0` | Playback variant of above |
+
+### Lift
+
+| Task ID | Description |
+|---|---|
+| `Isaac-Lift-Cube-Fetch-v0` | Cube lifting |
+| `Isaac-Lift-Cube-Fetch-Play-v0` | Playback variant |
+
+### Cabinet (Drawer Opening)
+
+| Task ID | Description |
+|---|---|
+| `Isaac-Open-Drawer-Fetch-v0` | Drawer opening |
+| `Isaac-Open-Drawer-Fetch-Play-v0` | Playback variant |
+| `Isaac-Open-Drawer-Fetch-v1` | Drawer opening (point cloud obs) |
+| `Isaac-Open-Drawer-Fetch-Play-v1` | Playback variant |
+
+## Project Structure
+
+```
+isaaclab_fetch/
+  assets/robots/          -- Fetch URDF/USD model files
+  exts/fetch_project/     -- Installable extension package (pip install -e .)
+    fetch_project/
+      robots/             -- Fetch robot ArticulationCfg (fetch.py)
+      tasks/
+        manipulation/
+          reach/          -- Reach task env configs, MDP, rewards
+          lift/           -- Lift task env configs, MDP, rewards
+          cabinet/        -- Cabinet task env configs
+          cabinet_pc/     -- Cabinet task with point cloud observations
+  scripts/
+    rsl_rl/
+      train.py            -- RSL-RL training script
+      play.py             -- RSL-RL playback / evaluation script
+      cli_args.py         -- CLI argument helpers
+    skrl/
+      train.py            -- SKRL training script (alternative)
+      play.py             -- SKRL playback script (alternative)
+  logs/                   -- Training logs and checkpoints
+```
+
+## PPO Hyperparameters
+
+Default PPO config is in `exts/fetch_project/fetch_project/tasks/manipulation/reach/config/fetch/agents/rsl_rl_ppo_cfg.py`:
+
+- Max iterations: 30000
+- Steps per env: 24
+- Save interval: 500
+- Actor/Critic: [64, 64] MLP with ELU activation
+- Learning rate: 1e-3 (adaptive schedule)
+- Gamma: 0.99, Lambda: 0.95
+- Entropy coef: 0.01, Clip param: 0.2
+
+## License
+
+MIT
