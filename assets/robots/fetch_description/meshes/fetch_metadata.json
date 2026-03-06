@@ -1,0 +1,74 @@
+{
+  "joints": {
+    "r_wheel_joint": {
+      "type": "velocity",
+      "gain": 100,
+      "ctrlrange": [-10, 10]
+    },
+    "l_wheel_joint": {
+      "type": "velocity",
+      "gain": 100,
+      "ctrlrange": [-10, 10]
+    },
+    "torso_lift_joint": {
+      "type": "position",
+      "gain": 500,
+      "ctrlrange": [0, 0.38615]
+    },
+    "head_pan_joint": {
+      "type": "position",
+      "gain": 50,
+      "ctrlrange": [-1.57, 1.57]
+    },
+    "head_tilt_joint": {
+      "type": "position",
+      "gain": 50,
+      "ctrlrange": [-0.76, 1.45]
+    },
+    "shoulder_pan_joint": {
+      "type": "position",
+      "gain": 200,
+      "ctrlrange": [-1.6056, 1.6056]
+    },
+    "shoulder_lift_joint": {
+      "type": "position",
+      "gain": 200,
+      "ctrlrange": [-1.221, 1.518]
+    },
+    "upperarm_roll_joint": {
+      "type": "position",
+      "gain": 100,
+      "ctrlrange": [-3.14, 3.14]
+    },
+    "elbow_flex_joint": {
+      "type": "position",
+      "gain": 200,
+      "ctrlrange": [-2.251, 2.251]
+    },
+    "forearm_roll_joint": {
+      "type": "position",
+      "gain": 100,
+      "ctrlrange": [-3.14, 3.14]
+    },
+    "wrist_flex_joint": {
+      "type": "position",
+      "gain": 100,
+      "ctrlrange": [-2.16, 2.16]
+    },
+    "wrist_roll_joint": {
+      "type": "position",
+      "gain": 50,
+      "ctrlrange": [-3.14, 3.14]
+    },
+    "r_gripper_finger_joint": {
+      "type": "position",
+      "gain": 50,
+      "ctrlrange": [0, 0.05]
+    },
+    "l_gripper_finger_joint": {
+      "type": "position",
+      "gain": 50,
+      "ctrlrange": [0, 0.05]
+    }
+  }
+}

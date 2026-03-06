@@ -1,0 +1,267 @@
+<mujoco model="fetch">
+  <compiler meshdir="../meshes-mujoco/" balanceinertia="true" discardvisual="false" />
+  <asset>
+    <!-- Mesh definitions. All .dae files have been converted to .stl -->
+    <mesh name="base_link" file="base_link.stl"/>
+    <mesh name="base_link_collision" file="base_link_collision.stl"/>
+    <mesh name="r_wheel_link" file="r_wheel_link.stl"/>
+    <mesh name="l_wheel_link" file="l_wheel_link.stl"/>
+    <mesh name="bl_caster_link" file="r_wheel_link.stl"/>
+    <mesh name="br_caster_link" file="r_wheel_link.stl"/>
+    <mesh name="fl_caster_link" file="r_wheel_link.stl"/>
+    <mesh name="fr_caster_link" file="r_wheel_link.stl"/>
+    <mesh name="torso_lift_link" file="torso_lift_link.stl"/>
+    <mesh name="torso_lift_link_collision" file="torso_lift_link_collision.stl"/>
+    <mesh name="head_pan_link" file="head_pan_link.stl"/>
+    <mesh name="head_pan_link_collision" file="head_pan_link_collision.stl"/>
+    <mesh name="head_tilt_link" file="head_tilt_link.stl"/>
+    <mesh name="head_tilt_link_collision" file="head_tilt_link_collision.stl"/>
+    <mesh name="shoulder_pan_link" file="shoulder_pan_link.stl"/>
+    <mesh name="shoulder_pan_link_collision" file="shoulder_pan_link_collision.stl"/>
+    <mesh name="shoulder_lift_link" file="shoulder_lift_link.stl"/>
+    <mesh name="shoulder_lift_link_collision" file="shoulder_lift_link_collision.stl"/>
+    <mesh name="upperarm_roll_link" file="upperarm_roll_link.stl"/>
+    <mesh name="upperarm_roll_link_collision" file="upperarm_roll_link_collision.stl"/>
+    <mesh name="elbow_flex_link" file="elbow_flex_link.stl"/>
+    <mesh name="elbow_flex_link_collision" file="elbow_flex_link_collision.stl"/>
+    <mesh name="forearm_roll_link" file="forearm_roll_link.stl"/>
+    <mesh name="forearm_roll_link_collision" file="forearm_roll_link_collision.stl"/>
+    <mesh name="wrist_flex_link" file="wrist_flex_link.stl"/>
+    <mesh name="wrist_flex_link_collision" file="wrist_flex_link_collision.stl"/>
+    <mesh name="wrist_roll_link" file="wrist_roll_link.stl"/>
+    <mesh name="wrist_roll_link_collision" file="wrist_roll_link_collision.stl"/>
+    <mesh name="gripper_link" file="gripper_link.stl"/>
+    <mesh name="gripper_link_collision" file="gripper_link_collision.stl"/>
+    <mesh name="r_gripper_finger_link" file="r_gripper_finger_link.stl"/>
+    <mesh name="l_gripper_finger_link" file="l_gripper_finger_link.stl"/>
+    <mesh name="bellows_link" file="bellows_link.stl"/>
+    <mesh name="bellows_link_collision" file="bellows_link_collision.stl"/>
+    <mesh name="estop_link" file="estop_link.stl"/>
+    <mesh name="estop_link_collision" file="estop_link_collision.stl"/>
+    <mesh name="laser_link" file="laser_link.stl"/>
+    <mesh name="torso_fixed_link" file="torso_fixed_link.stl"/>
+    <mesh name="torso_fixed_link_collision" file="torso_fixed_link_collision.stl"/>
+  </asset>
+  <worldbody>
+    <!-- Root body: base_link -->
+    <body name="base_link" pos="0 0 0">
+      <inertial pos="-0.0036 0 0.0014" mass="70.1294" 
+                fullinertia="1.225 1.2853 0.987 0.0099 0.0062 -0.0034" />
+      <geom name="base_visual" type="mesh" mesh="base_link" euler="0 0 0" rgba="0.356 0.361 0.376 1"/>
+      <geom name="base_collision" type="mesh" mesh="base_link_collision" euler="0 0 0"/>
+      
+      <!-- r_wheel_link (drive wheel with x offset set to 0) -->
+      <body name="r_wheel_link" pos="0 -0.18738 0.055325">
+         <inertial pos="0 0 0" mass="4.3542" fullinertia="0.0045 0.005 0.0045 0 0 0" />
+         <geom name="r_wheel_visual" type="mesh" mesh="r_wheel_link" euler="0 0 0" rgba="0.086 0.506 0.767 1"/>
+         <geom name="r_wheel_collision" type="cylinder" size="0.0603 0.03" euler="1.5708 1.5708 0"/>
+         <joint name="r_wheel_joint" type="hinge" pos="0 0 0" axis="0 1 0"
+                range="-300 300" />
+         <body name="r_wheel_bottom_link" pos="0 0 -0.0603"/>
+      </body>
+      
+      <!-- l_wheel_link (x offset set to 0) -->
+      <body name="l_wheel_link" pos="0 0.18738 0.055325">
+         <inertial pos="0 0 0" mass="4.3542" fullinertia="0.0045 0.005 0.0045 0 0 0" />
+         <geom name="l_wheel_visual" type="mesh" mesh="l_wheel_link" euler="0 0 0" rgba="0.086 0.506 0.767 1"/>
+         <geom name="l_wheel_collision" type="cylinder" size="0.0603 0.03" euler="1.5708 1.5708 0"/>
+         <joint name="l_wheel_joint" type="hinge" pos="0 0 0" axis="0 1 0"
+                range="-300 300" />
+         <body name="l_wheel_bottom_link" pos="0 0 -0.0603"/>
+      </body>
+      
+      <!-- Caster wheels -->
+      <body name="bl_caster_link" pos="-0.18 -0.12 0.055325">
+         <inertial pos="0 0 0" mass="0.5" fullinertia="0.001 0.001 0.001 0 0 0" />
+         <geom name="bl_caster_visual" type="mesh" mesh="bl_caster_link" euler="0 0 0" rgba="0.086 0.506 0.767 1"/>
+         <geom name="bl_caster_collision" type="cylinder" size="0.0603 0.03" euler="1.5708 1.5708 0"/>
+      </body>
+      <body name="br_caster_link" pos="-0.18 0.12 0.055325">
+         <inertial pos="0 0 0" mass="0.5" fullinertia="0.001 0.001 0.001 0 0 0" />
+         <geom name="br_caster_visual" type="mesh" mesh="br_caster_link" euler="0 0 0" rgba="0.086 0.506 0.767 1"/>
+         <geom name="br_caster_collision" type="cylinder" size="0.0603 0.03" euler="1.5708 1.5708 0"/>
+      </body>
+      <body name="fl_caster_link" pos="0.18 -0.12 0.055325">
+         <inertial pos="0 0 0" mass="0.5" fullinertia="0.001 0.001 0.001 0 0 0" />
+         <geom name="fl_caster_visual" type="mesh" mesh="fl_caster_link" euler="0 0 0" rgba="0.086 0.506 0.767 1"/>
+         <geom name="fl_caster_collision" type="sphere" size="0.0603"/>
+      </body>
+      <body name="fr_caster_link" pos="0.18 0.12 0.055325">
+         <inertial pos="0 0 0" mass="0.5" fullinertia="0.001 0.001 0.001 0 0 0" />
+         <geom name="fr_caster_visual" type="mesh" mesh="fr_caster_link" euler="0 0 0" rgba="0.086 0.506 0.767 1"/>
+         <geom name="fr_caster_collision" type="sphere" size="0.0603"/>
+      </body>
+      
+      <!-- Caster base (fixed connection) -->
+      <body name="caster_link" pos="0.18 0 0.055325">
+         <body name="caster_bottom_link" pos="0 0 -0.0603"/>
+      </body>
+      
+      <!-- New mid-drive wheel (fixed connection via body nesting) -->
+      <body name="mid_drive_wheel_link" pos="0 0 0.055325">
+         <!-- Simply nest the bottom link without a joint element -->
+         <body name="mid_drive_wheel_bottom_link" pos="0 0 -0.0603"/>
+      </body>
+      
+      <!-- torso_lift_link and head mechanisms -->
+      <body name="torso_lift_link" pos="-0.086875 0 0.37743">
+         <inertial pos="-0.0013 -0.0009 0.2935" mass="10.7796" 
+                   fullinertia="0.3354 0.3354 0.0954 0 -0.0162 -0.0006" />
+         <geom name="torso_lift_visual" type="mesh" mesh="torso_lift_link" euler="0 0 0" rgba="1 1 1 1"/>
+         <geom name="torso_lift_collision" type="mesh" mesh="torso_lift_link_collision" euler="0 0 0"/>
+         <joint name="torso_lift_joint" type="slide" pos="-0.086875 0 0.37743" axis="0 0 1"
+                range="0 0.38615" damping="100.0" />
+         <body name="head_pan_link" pos="0.053125 0 0.603001417713939">
+            <inertial pos="0.0321 0.0161 0.0390" mass="2.2556" 
+                      fullinertia="0.0129 0.0095 0.0184 0.0002 0.0007 0" />
+            <geom name="head_pan_visual" type="mesh" mesh="head_pan_link" euler="0 0 0" rgba="0.356 0.361 0.376 1"/>
+            <geom name="head_pan_collision" type="mesh" mesh="head_pan_link_collision" euler="0 0 0"/>
+            <joint name="head_pan_joint" type="hinge" pos="0 0 0" axis="0 0 1"
+                   range="-1.57 1.57" />
+            <body name="head_tilt_link" pos="0.14253 0 0.057999">
+               <inertial pos="0.0081 0.0025 0.0113" mass="0.9087" 
+                      fullinertia="0.0061 0.0014 0.0061 0 0.0002 -0.0001" />
+               <geom name="head_tilt_visual" type="mesh" mesh="head_tilt_link" euler="0 0 0" rgba="0.086 0.506 0.767 1"/>
+               <geom name="head_tilt_collision" type="mesh" mesh="head_tilt_link_collision" euler="0 0 0"/>
+               <joint name="head_tilt_joint" type="hinge" pos="0 0 0" axis="0 1 0"
+                      range="-0.76 1.45" damping="100.0"/>
+               <body name="head_camera_link" pos="0.055 0 0.0225">
+                  <body name="head_camera_rgb_frame" pos="0 0.02 0">
+                     <body name="head_camera_rgb_optical_frame" pos="0 0 0"/>
+                  </body>
+                  <body name="head_camera_depth_frame" pos="0 0.045 0">
+                     <body name="head_camera_depth_optical_frame" pos="0 0 0"/>
+                  </body>
+               </body>
+            </body>
+         </body>
+         
+         <!-- shoulder_pan_link -->
+         <body name="shoulder_pan_link" pos="0.119525 0 0.34858">
+            <inertial pos="0.0927 -0.0056 0.0564" mass="2.5587" 
+                      fullinertia="0.0043 0.0087 0.0087 -0.0001 0.001 -0.0001" />
+            <geom name="shoulder_pan_visual" type="mesh" mesh="shoulder_pan_link" euler="0 0 0" rgba="1 1 1 1"/>
+            <geom name="shoulder_pan_collision" type="mesh" mesh="shoulder_pan_link_collision" euler="0 0 0"/>
+            <joint name="shoulder_pan_joint" type="hinge" pos="0 0 0" axis="0 0 1"
+                   range="-1.6056 1.6056" damping="1.0" />
+            <body name="shoulder_lift_link" pos="0.117 0 0.06">
+               <inertial pos="0.1432 0.0072 -0.0001" mass="2.6615" 
+                         fullinertia="0.0028 0.0111 0.0112 -0.0021 0 0" />
+               <geom name="shoulder_lift_visual" type="mesh" mesh="shoulder_lift_link" euler="0 0 0" rgba="0.086 0.506 0.767 1"/>
+               <geom name="shoulder_lift_collision" type="mesh" mesh="shoulder_lift_link_collision" euler="0 0 0"/>
+               <joint name="shoulder_lift_joint" type="hinge" pos="0 0 0" axis="0 1 0"
+                      range="-1.221 1.518" damping="1.0" />
+               <body name="upperarm_roll_link" pos="0.219 0 0">
+                  <inertial pos="0.1165 0.0014 0" mass="2.3311" 
+                            fullinertia="0.0019 0.0045 0.0047 -0.0001 0 0" />
+                  <geom name="upperarm_roll_visual" type="mesh" mesh="upperarm_roll_link" euler="0 0 0" rgba="1 1 1 1"/>
+                  <geom name="upperarm_roll_collision" type="mesh" mesh="upperarm_roll_link_collision" euler="0 0 0"/>
+                  <joint name="upperarm_roll_joint" type="hinge" pos="0 0 0" axis="1 0 0"
+                         range="-300 300" damping="5.0"/>
+                  <body name="elbow_flex_link" pos="0.133 0 0">
+                     <inertial pos="0.1279 0.0073 0" mass="2.1299" 
+                               fullinertia="0.0024 0.0082 0.0084 -0.0016 0 0" />
+                     <geom name="elbow_flex_visual" type="mesh" mesh="elbow_flex_link" euler="0 0 0" rgba="0.086 0.506 0.767 1"/>
+                     <geom name="elbow_flex_collision" type="mesh" mesh="elbow_flex_link_collision" euler="0 0 0"/>
+                     <joint name="elbow_flex_joint" type="hinge" pos="0 0 0" axis="0 1 0"
+                            range="-2.251 2.251" damping="1.0"/>
+                     <body name="forearm_roll_link" pos="0.197 0 0">
+                        <inertial pos="0.1097 -0.0266 0" mass="1.6563" 
+                                  fullinertia="0.0016 0.003 0.0035 -0.0003 0 0" />
+                        <geom name="forearm_roll_visual" type="mesh" mesh="forearm_roll_link" euler="0 0 0" rgba="1 1 1 1"/>
+                        <geom name="forearm_roll_collision" type="mesh" mesh="forearm_roll_link_collision" euler="0 0 0"/>
+                        <joint name="forearm_roll_joint" type="hinge" pos="0 0 0" axis="1 0 0"
+                               range="-300 300" damping="5.0"/>
+                        <body name="wrist_flex_link" pos="0.1245 0 0">
+                           <inertial pos="0.0882 0.0009 -0.0001" mass="1.725" 
+                                     fullinertia="0.0018 0.0042 0.0042 -0.0001 0 0" />
+                           <geom name="wrist_flex_visual" type="mesh" mesh="wrist_flex_link" euler="0 0 0" rgba="0.086 0.506 0.767 1"/>
+                           <geom name="wrist_flex_collision" type="mesh" mesh="wrist_flex_link_collision" euler="0 0 0"/>
+                           <joint name="wrist_flex_joint" type="hinge" pos="0 0 0" axis="0 1 0"
+                                  range="-2.16 2.16" damping="1.0" />
+                           <body name="wrist_roll_link" pos="0.1385 0 0">
+                              <inertial pos="0.0095 0.0004 -0.0002" mass="0.1354" 
+                                        fullinertia="0.0001 0.0001 0.0001 0 0 0" />
+                              <geom name="wrist_roll_visual" type="mesh" mesh="wrist_roll_link" euler="0 0 0" rgba="1 1 1 1"/>
+                              <geom name="wrist_roll_collision" type="mesh" mesh="wrist_roll_link_collision" euler="0 0 0"/>
+                              <joint name="wrist_roll_joint" type="hinge" pos="0 0 0" axis="1 0 0"
+                                     range="-300 300" damping="5.0"/>
+                              <body name="gripper_link" pos="0.16645 0 0">
+                                <!-- Heavy gripper inertial -->
+                                <inertial pos="-0.0900 -0.0001 -0.0017" mass="15.175"
+                                          fullinertia="0.013 0.019 0.024 0 0 0" />
+                                 <geom name="gripper_visual" type="mesh" mesh="gripper_link" euler="0 0 0"/>
+                                 <geom name="gripper_collision" type="mesh" mesh="gripper_link_collision" euler="0 0 0"/>
+                                 <body name="r_gripper_finger_link" pos="0 0.015425 0">
+                                    <inertial pos="-0.01 0 0" mass="0.0798" 
+                                              fullinertia="0.002 0.002 0.002 0 0 0" />
+                                    <geom name="r_gripper_finger_visual" type="mesh" mesh="r_gripper_finger_link" euler="0 0 0" rgba="0.356 0.361 0.376 1"/>
+                                    <geom name="r_gripper_finger_collision" type="mesh" mesh="r_gripper_finger_link" euler="0 0 0"/>
+                                    <joint name="r_gripper_finger_joint" type="slide" pos="0 0 0" axis="0 1 0"
+                                           range="0 0.03" damping="100.0" />
+                                 </body>
+                                 <body name="l_gripper_finger_link" pos="0 -0.015425 0">
+                                    <inertial pos="-0.01 0 0" mass="0.0798" 
+                                              fullinertia="0.002 0.002 0.002 0 0 0" />
+                                    <geom name="l_gripper_finger_visual" type="mesh" mesh="l_gripper_finger_link" euler="0 0 0" rgba="0.356 0.361 0.376 1"/>
+                                    <geom name="l_gripper_finger_collision" type="mesh" mesh="l_gripper_finger_link" euler="0 0 0"/>
+                                    <joint name="l_gripper_finger_joint" type="slide" pos="0 0 0" axis="0 -1 0"
+                                           range="0 0.03" damping="100.0"/>
+                                 </body>
+                              </body>
+                           </body>
+                        </body>
+                     </body>
+                  </body>
+               </body>
+            </body>
+         </body>
+         
+         <!-- bellows_link -->
+         <body name="bellows_link" pos="0 0 0">
+            <inertial pos="0.0191320000286228 0 -0.134861625443387" mass="0.169374038216602" 
+                      fullinertia="0.00331159 0.00174447 0.00169418 -8.9231e-18 -5.38622e-08 -8.06965e-17" />
+            <geom name="bellows_visual" type="mesh" mesh="bellows_link" euler="0 0 0" rgba="0 0 0 1"/>
+            <geom name="bellows_collision" type="mesh" mesh="bellows_link_collision" euler="0 0 0"/>
+            <joint name="bellows_joint" type="slide" pos="0 0 0" axis="0 0 -1"
+                   range="0 0.4" />
+         </body>
+         
+         <!-- bellows_link2 -->
+         <body name="bellows_link2" pos="0 0 0">
+            <inertial pos="0.0191320000286228 0 -0.134861625443387" mass="0.169374038216602" 
+                      fullinertia="0.00331159 0.00174447 0.00169418 -8.9231e-18 -5.38622e-08 -8.06965e-17" />
+            <geom name="bellows2_visual" type="mesh" mesh="bellows_link" euler="0 0 0" rgba="0 0 0 1"/>
+            <geom name="bellows2_collision" type="mesh" mesh="bellows_link_collision" euler="0 0 0"/>
+         </body>
+      </body>
+      
+      <!-- estop_link -->
+      <body name="estop_link" pos="-0.12465 0.23892 0.31127">
+         <inertial pos="0.002434512737072 -0.00330608315239905 0.00665139196650039" mass="0.00196130439134723" 
+                   fullinertia="3.0281e-07 2.93323e-07 2.28513e-07 -1.5862e-08 3.16561e-08 -4.28834e-08" />
+         <geom name="estop_visual" type="mesh" mesh="estop_link" euler="0 0 0" rgba="0.8 0 0 1"/>
+         <geom name="estop_collision" type="mesh" mesh="estop_link_collision" euler="0 0 0"/>
+         <body name="estop_joint_body" pos="-0.12465 0.23892 0.31127"/>
+      </body>
+      
+      <!-- laser_link -->
+      <body name="laser_link" pos="0 0 0">
+         <inertial pos="-0.0306228970175641 0.0007091682908278 0.0551974119471302" mass="0.00833634573995571" 
+                   fullinertia="1.01866e-06 5.10040e-07 1.28271e-06 -5.88448e-08 7.83857e-08 -7.12664e-09" />
+         <geom name="laser_visual" type="mesh" mesh="laser_link" euler="0 0 0"
+               rgba="0.792156862745098 0.819607843137255 0.933333333333333 1"/>
+         <geom name="laser_collision" type="mesh" mesh="laser_link" euler="0 0 0"/>
+         <body name="laser_joint_body" pos="0.235 0 0.2878"/>
+      </body>
+      
+      <!-- torso_fixed_link -->
+      <body name="torso_fixed_link" pos="-0.086875 0 0.377425">
+         <inertial pos="-0.0722 0.0057 0.2656" mass="13.2775" 
+                   fullinertia="0.3861 0.3388 0.1018 0.0015 -0.0102 0.0117" />
+         <geom name="torso_fixed_visual" type="mesh" mesh="torso_fixed_link" euler="0 0 0" rgba="0.086 0.506 0.767 1"/>
+         <geom name="torso_fixed_collision" type="mesh" mesh="torso_fixed_link_collision" euler="0 0 0"/>
+         <body name="torso_fixed_joint_body" pos="-0.086875 0 0.377425"/>
+      </body>
+    </worldbody>
+</mujoco>

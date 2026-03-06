@@ -1,0 +1,9 @@
+setup.py
+fetch_project/__init__.py
+fetch_project/ui_extension_example.py
+fetch_project.egg-info/PKG-INFO
+fetch_project.egg-info/SOURCES.txt
+fetch_project.egg-info/dependency_links.txt
+fetch_project.egg-info/not-zip-safe
+fetch_project.egg-info/requires.txt
+fetch_project.egg-info/top_level.txt

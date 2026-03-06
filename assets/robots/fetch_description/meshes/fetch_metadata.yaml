@@ -1,0 +1,9 @@
+metadata:
+  joints:
+    r_wheel_joint:
+      type: velocity  # or "position" depending on your needs
+      gain: 100       # example value, adjust as needed
+    l_wheel_joint:
+      type: velocity
+      gain: 100
+    # Add other joints as needed

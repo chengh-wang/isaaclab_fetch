@@ -1,0 +1,81 @@
+<mujoco>
+    <compiler 
+        meshdir="../meshes_mujoco/" 
+        balanceinertia="true" 
+        discardvisual="false" />
+
+    <option timestep="0.002" gravity="0 0 -9.81"/>
+    
+    <worldbody>
+        <body name="base_link">
+            <inertial mass="70.1294" pos="-0.0036 0.0 0.0014"/>
+            <geom type="mesh" mesh="base_link" rgba="0.356 0.361 0.376 1"/>
+            <geom type="mesh" mesh="base_link_collision"/>
+        </body>
+
+        <body name="r_wheel_link">
+            <inertial mass="4.3542"/>
+            <geom type="mesh" mesh="r_wheel_link" rgba="0.086 0.506 0.767 1"/>
+            <geom type="cylinder" size="0.0603 0.06"/>
+            <joint name="r_wheel_joint" type="hinge" pos="0.0012914 -0.18738 0.055325" axis="0 1 0" range="-300 300"/>
+        </body>
+        
+        <body name="l_wheel_link">
+            <inertial mass="4.3542"/>
+            <geom type="mesh" mesh="l_wheel_link" rgba="0.086 0.506 0.767 1"/>
+            <geom type="cylinder" size="0.0603 0.06"/>
+            <joint name="l_wheel_joint" type="hinge" pos="0.0012914 0.18738 0.055325" axis="0 1 0" range="-300 300"/>
+        </body>
+        
+        <body name="bl_caster_link">
+            <inertial mass="0.5"/>
+            <geom type="mesh" mesh="r_wheel_link" rgba="0.086 0.506 0.767 1"/>
+            <geom type="cylinder" size="0.0603 0.06"/>
+            <joint name="bl_caster_joint" type="free" pos="-0.18 -0.12 0.055325"/>
+        </body>
+        
+        <body name="br_caster_link">
+            <inertial mass="0.5"/>
+            <geom type="mesh" mesh="r_wheel_link" rgba="0.086 0.506 0.767 1"/>
+            <geom type="cylinder" size="0.0603 0.06"/>
+            <joint name="br_caster_joint" type="free" pos="-0.18 0.12 0.055325"/>
+        </body>
+        
+        <body name="fl_caster_link">
+            <inertial mass="0.5"/>
+            <geom type="mesh" mesh="r_wheel_link" rgba="0.086 0.506 0.767 1"/>
+            <geom type="sphere" size="0.0603"/>
+            <joint name="fl_caster_joint" type="free" pos="0.18 -0.12 0.055325"/>
+        </body>
+        
+        <body name="fr_caster_link">
+            <inertial mass="0.5"/>
+            <geom type="mesh" mesh="r_wheel_link" rgba="0.086 0.506 0.767 1"/>
+            <geom type="sphere" size="0.0603"/>
+            <joint name="fr_caster_joint" type="free" pos="0.18 0.12 0.055325"/>
+        </body>
+        
+        <body name="r_wheel_bottom_link">
+            <joint name="r_wheel_bottom_joint" type="fixed" pos="0 0 -0.0603"/>
+        </body>
+        
+        <body name="l_wheel_bottom_link">
+            <joint name="l_wheel_bottom_joint" type="fixed" pos="0 0 -0.0603"/>
+        </body>
+        
+        <body name="caster_link">
+            <joint name="caster_joint" type="fixed" pos="0.18 0 0.055325"/>
+        </body>
+        
+        <body name="caster_bottom_link">
+            <joint name="caster_bottom_joint" type="fixed" pos="0 0 -0.0603"/>
+        </body>
+    </worldbody>
+
+    <asset>
+        <mesh name="base_link" file="base_link.STL"/>
+        <mesh name="base_link_collision" file="base_link_collision.STL"/>
+        <mesh name="r_wheel_link" file="r_wheel_link.STL"/>
+        <mesh name="l_wheel_link" file="l_wheel_link.STL"/>
+    </asset>
+</mujoco>

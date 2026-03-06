@@ -1,0 +1,6 @@
+logs/
+outputs/
+wandb/
+__pycache__/
+*.pyc
+*.pyo

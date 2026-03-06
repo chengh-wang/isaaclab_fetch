@@ -1,0 +1,19 @@
+{
+  "actuators": [
+    {"joint": "r_wheel_joint", "gear": 1.0},
+    {"joint": "l_wheel_joint", "gear": 1.0},
+    {"joint": "torso_lift_joint", "gear": 1.0},
+    {"joint": "shoulder_pan_joint", "gear": 1.0},
+    {"joint": "shoulder_lift_joint", "gear": 1.0},
+    {"joint": "upperarm_roll_joint", "gear": 1.0},
+    {"joint": "elbow_flex_joint", "gear": 1.0},
+    {"joint": "forearm_roll_joint", "gear": 1.0},
+    {"joint": "wrist_flex_joint", "gear": 1.0},
+    {"joint": "wrist_roll_joint", "gear": 1.0},
+    {"joint": "head_pan_joint", "gear": 1.0},
+    {"joint": "head_tilt_joint", "gear": 1.0},
+    {"joint": "r_gripper_finger_joint", "gear": 1.0},
+    {"joint": "l_gripper_finger_joint", "gear": 1.0}
+  ]
+}
+
