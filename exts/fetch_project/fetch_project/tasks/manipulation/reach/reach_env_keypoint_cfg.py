@@ -96,9 +96,9 @@ class KeypointCommandsCfg:
             pos_y=(-.5, .5),
             pos_z=(0.4, 1.1),
             # Tightened to Fetch-reachable orientation ranges
-            roll=(-1.57, 1.57),
-            pitch=(-0.5, 1.2),
-            yaw=(-1.57, 1.57),
+            roll=(-3.14, 3.14),
+            pitch=(-3.14, 3.14),
+            yaw=(-3.14, 3.14),
         ),
         success_threshold=0.001,
         ori_threshold=0.01,

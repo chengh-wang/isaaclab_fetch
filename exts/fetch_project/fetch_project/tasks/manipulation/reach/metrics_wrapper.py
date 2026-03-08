@@ -1,27 +1,30 @@
-# save as: fetch_project/tasks/manipulation/reach/metrics_wrapper.py
-
 import torch
 from isaaclab.utils.math import quat_error_magnitude
 
 
 class KeypointMetricsWrapper:
-    """Thin wrapper that injects tracking metrics into env.extras["log"].
-    
-    Wrap AFTER RslRlVecEnvWrapper so it intercepts the infos dict.
-    """
 
     def __init__(self, env, cube_side=0.3):
         self._env = env
         self._cube_side = cube_side
+        self._initialized = False
 
     def __getattr__(self, name):
         return getattr(self._env, name)
 
+    def _lazy_init(self, num_envs, device):
+        self._best_pos_err = torch.full((num_envs,), 1e6, device=device)
+        self._best_ori_err = torch.full((num_envs,), 1e6, device=device)
+        self._best_kp_dist = torch.full((num_envs,), 1e6, device=device)
+        self._initialized = True
+
     def step(self, actions):
         obs, rew, dones, infos = self._env.step(actions)
 
-        # Access the unwrapped Isaac Lab env
         base_env = self._env.unwrapped
+
+        if not self._initialized:
+            self._lazy_init(base_env.num_envs, base_env.device)
 
         # EE pose
         asset = base_env.scene["robot"]
@@ -33,22 +36,37 @@ class KeypointMetricsWrapper:
         cmd = base_env.command_manager.get_command("ee_pose")
         g_pos, g_quat = cmd[:, :3], cmd[:, 3:7]
 
-        # Metrics
+        # Current errors
         pos_err = torch.norm(ee_pos - g_pos, dim=-1)
         ori_err = quat_error_magnitude(ee_quat, g_quat)
 
         from .mdp.utils import keypoint_distance
         _, kp_dist = keypoint_distance(ee_pos, ee_quat, g_pos, g_quat, self._cube_side)
 
-        stage = getattr(base_env, "_kp_curriculum_stage", 0)
+        # Update best (minimum) per env
+        self._best_pos_err = torch.min(self._best_pos_err, pos_err)
+        self._best_ori_err = torch.min(self._best_ori_err, ori_err)
+        self._best_kp_dist = torch.min(self._best_kp_dist, kp_dist)
 
-        # Inject into infos — rsl_rl logs these directly
+        # On episode end, report best errors then reset
+        done_ids = dones.nonzero(as_tuple=False).squeeze(-1)
+
         if "log" not in infos:
             infos["log"] = {}
-        infos["log"]["Metrics/pos_error_cm"] = pos_err.mean().item() * 100
-        infos["log"]["Metrics/pos_median_cm"] = pos_err.median().item() * 100
-        infos["log"]["Metrics/ori_error_deg"] = torch.rad2deg(ori_err).mean().item()
-        infos["log"]["Metrics/kp_dist_cm"] = kp_dist.mean().item() * 100
+
+        if len(done_ids) > 0:
+            infos["log"]["Metrics/best_pos_cm"] = self._best_pos_err[done_ids].mean().item() * 100
+            infos["log"]["Metrics/best_ori_deg"] = torch.rad2deg(self._best_ori_err[done_ids]).mean().item()
+            infos["log"]["Metrics/best_kp_cm"] = self._best_kp_dist[done_ids].mean().item() * 100
+
+            # Reset for next episode
+            self._best_pos_err[done_ids] = 1e6
+            self._best_ori_err[done_ids] = 1e6
+            self._best_kp_dist[done_ids] = 1e6
+
+        # Always log curriculum stage and instantaneous (for training curve)
+        stage = getattr(base_env, "_kp_curriculum_stage", 0)
         infos["log"]["Metrics/curriculum_stage"] = float(stage)
+        infos["log"]["Metrics/instant_kp_cm"] = kp_dist.mean().item() * 100
 
         return obs, rew, dones, infos

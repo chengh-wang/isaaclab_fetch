@@ -482,12 +482,67 @@ def keypoint_progress_reset(
 # Curriculum
 # =============================================================================
 
+# def keypoint_sigma_curriculum(
+#     env: ManagerBasedRLEnv,
+#     env_ids: torch.Tensor,
+#     command_name: str,
+#     asset_cfg: SceneEntityCfg,
+#     cube_side: float = 0.3,
+# ):
+#     stages = [
+#         {"threshold": 0.08, "sigma_exp": 0.15,  "sigma_tanh": 0.05},
+#         {"threshold": 0.04, "sigma_exp": 0.08,  "sigma_tanh": 0.025},
+#         {"threshold": 0.02, "sigma_exp": 0.03,  "sigma_tanh": 0.01},
+#         {"threshold": 0.008,"sigma_exp": 0.01,  "sigma_tanh": 0.004},
+#         {"threshold": 0.003,"sigma_exp": 0.005, "sigma_tanh": 0.002},
+#     ]
+
+#     if not hasattr(env, "_kp_curriculum_stage"):
+#         env._kp_curriculum_stage = 0
+#         env._kp_sigma_exp = stages[0]["sigma_exp"]
+#         env._kp_sigma_tanh = stages[0]["sigma_tanh"]
+#         env._kp_curriculum_steps = 0
+#         env._kp_curriculum_below_count = 0
+
+#     env._kp_curriculum_steps += 1
+#     stage = env._kp_curriculum_stage
+
+#     # Min 1500 steps per stage
+#     if env._kp_curriculum_steps < 1500 * (stage + 1):
+#         return
+
+#     # Already at max stage
+#     if stage >= len(stages) - 1:
+#         return
+
+#     # Check median distance
+#     ee_p, ee_q, g_p, g_q = _ee_and_goal(env, command_name, asset_cfg)
+#     _, mean_d = keypoint_distance(ee_p, ee_q, g_p, g_q, cube_side)
+#     avg_dist = mean_d.median().item()
+
+#     # Consecutive confirmation
+#     if avg_dist < stages[stage]["threshold"]:
+#         env._kp_curriculum_below_count += 1
+#     else:
+#         env._kp_curriculum_below_count = 0
+
+#     if env._kp_curriculum_below_count >= 100:
+#         env._kp_curriculum_below_count = 0
+#         stage += 1
+#         env._kp_curriculum_stage = stage
+#         env._kp_sigma_exp = stages[stage]["sigma_exp"]
+#         env._kp_sigma_tanh = stages[stage]["sigma_tanh"]
+#         print(f"[Curriculum] Stage {stage}: sigma_exp={stages[stage]['sigma_exp']}, "
+#               f"sigma_tanh={stages[stage]['sigma_tanh']}, median_dist={avg_dist:.4f}m")
+
 def keypoint_sigma_curriculum(
     env: ManagerBasedRLEnv,
     env_ids: torch.Tensor,
     command_name: str,
     asset_cfg: SceneEntityCfg,
     cube_side: float = 0.3,
+    arrival_threshold: float = 0.15,   # 15cm: 认为"到了附近"
+    speed_threshold: float = 0.05,     # 0.05 m/s: 认为"稳了"
 ):
     stages = [
         {"threshold": 0.08, "sigma_exp": 0.15,  "sigma_tanh": 0.05},
@@ -503,25 +558,51 @@ def keypoint_sigma_curriculum(
         env._kp_sigma_tanh = stages[0]["sigma_tanh"]
         env._kp_curriculum_steps = 0
         env._kp_curriculum_below_count = 0
+        # Per-env settled error tracking
+        env._kp_settled_sum = torch.zeros(env.num_envs, device=env.device)
+        env._kp_settled_count = torch.zeros(env.num_envs, device=env.device)
 
     env._kp_curriculum_steps += 1
     stage = env._kp_curriculum_stage
 
-    # Min 1500 steps per stage
-    if env._kp_curriculum_steps < 1500 * (stage + 1):
-        return
-
-    # Already at max stage
     if stage >= len(stages) - 1:
         return
 
-    # Check median distance
+    # Current kp distance and EE speed
     ee_p, ee_q, g_p, g_q = _ee_and_goal(env, command_name, asset_cfg)
-    _, mean_d = keypoint_distance(ee_p, ee_q, g_p, g_q, cube_side)
-    avg_dist = mean_d.median().item()
+    _, kp_dist = keypoint_distance(ee_p, ee_q, g_p, g_q, cube_side)
 
-    # Consecutive confirmation
-    if avg_dist < stages[stage]["threshold"]:
+    asset = env.scene[asset_cfg.name]
+    ee_vel = asset.data.body_state_w[:, asset_cfg.body_ids[0], 7:10]
+    ee_speed = torch.norm(ee_vel, dim=-1)
+
+    # "Settled" = close enough AND slow enough
+    settled = (kp_dist < arrival_threshold) & (ee_speed < speed_threshold)
+
+    # Accumulate error only for settled envs
+    env._kp_settled_sum[settled] += kp_dist[settled]
+    env._kp_settled_count[settled] += 1
+
+    # Reset on episode done (env_ids from curriculum manager = reset envs)
+    if len(env_ids) > 0:
+        env._kp_settled_sum[env_ids] = 0.0
+        env._kp_settled_count[env_ids] = 0.0
+
+    # Min steps guard
+    if env._kp_curriculum_steps < 1500 * (stage + 1):
+        return
+
+    # Need enough settled samples to make a decision
+    has_data = env._kp_settled_count > 10  # at least 10 settled steps
+    if has_data.sum() < env.num_envs * 0.3:
+        # Less than 30% envs have enough settled data
+        return
+
+    # Compute mean settled error per env, then take median across envs
+    settled_mean = env._kp_settled_sum[has_data] / env._kp_settled_count[has_data]
+    median_settled = settled_mean.median().item()
+
+    if median_settled < stages[stage]["threshold"]:
         env._kp_curriculum_below_count += 1
     else:
         env._kp_curriculum_below_count = 0
@@ -532,9 +613,12 @@ def keypoint_sigma_curriculum(
         env._kp_curriculum_stage = stage
         env._kp_sigma_exp = stages[stage]["sigma_exp"]
         env._kp_sigma_tanh = stages[stage]["sigma_tanh"]
+        # Reset settled tracking for fresh start at new stage
+        env._kp_settled_sum.zero_()
+        env._kp_settled_count.zero_()
         print(f"[Curriculum] Stage {stage}: sigma_exp={stages[stage]['sigma_exp']}, "
-              f"sigma_tanh={stages[stage]['sigma_tanh']}, median_dist={avg_dist:.4f}m")
-
+              f"sigma_tanh={stages[stage]['sigma_tanh']}, median_settled={median_settled:.4f}m")
+              
 def keypoint_metrics(
     env: ManagerBasedRLEnv,
     command_name: str,
