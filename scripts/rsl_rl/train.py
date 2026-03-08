@@ -82,6 +82,39 @@ def main():
         print("[INFO] Recording videos during training.")
         print_dict(video_kwargs, nesting=4)
         env = gym.wrappers.RecordVideo(env, **video_kwargs)
+
+        # Upload recorded videos to wandb in a background thread
+        if agent_cfg.logger == "wandb":
+            import wandb as _wandb
+            import threading
+            import glob
+            import time
+
+            _video_folder = video_kwargs["video_folder"]
+
+            def _upload_videos_loop():
+                uploaded = set()
+                while True:
+                    time.sleep(30)
+                    if _wandb.run is None:
+                        continue
+                    for f in sorted(glob.glob(os.path.join(_video_folder, "*.mp4"))):
+                        if f not in uploaded:
+                            try:
+                                step = int(os.path.basename(f).split("-")[1].split(".")[0])
+                            except (IndexError, ValueError):
+                                step = None
+                            _wandb.log(
+                                {"train/video": _wandb.Video(f, fps=30, format="mp4")},
+                                step=step,
+                                commit=True,
+                            )
+                            uploaded.add(f)
+                            print(f"[INFO] Uploaded video to wandb: {os.path.basename(f)}")
+
+            _vid_thread = threading.Thread(target=_upload_videos_loop, daemon=True)
+            _vid_thread.start()
+
     # wrap around environment for rsl-rl
     env = RslRlVecEnvWrapper(env)
     env = KeypointMetricsWrapper(env)
