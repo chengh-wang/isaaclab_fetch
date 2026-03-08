@@ -140,6 +140,16 @@ def main():
     dump_pickle(os.path.join(log_dir, "params", "env.pkl"), env_cfg)
     dump_pickle(os.path.join(log_dir, "params", "agent.pkl"), agent_cfg)
 
+    # Upload params folder to wandb
+    if agent_cfg.logger == "wandb":
+        import wandb as _wandb
+
+        if _wandb.run is not None:
+            params_artifact = _wandb.Artifact(name="params", type="config")
+            params_artifact.add_dir(os.path.join(log_dir, "params"))
+            _wandb.run.log_artifact(params_artifact)
+            print("[INFO] Uploaded params folder to wandb as artifact.")
+
     # run training
     runner.learn(num_learning_iterations=agent_cfg.max_iterations, init_at_random_ep_len=True)
 
