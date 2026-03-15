@@ -125,8 +125,36 @@ def main():
             actions = policy(obs)
             obs, _, _, _ = env.step(actions)
 
+        timestep += 1
+
+        # --- Debug: curriculum-relevant stats ---
+        if timestep % 50 == 0:
+            base_env = env.unwrapped
+            asset = base_env.scene["robot"]
+            body_idx = asset.find_bodies("wrist_roll_link")[0][0]
+            ee_state = asset.data.body_state_w[:, body_idx, :]
+            ee_pos, ee_quat = ee_state[:, :3], ee_state[:, 3:7]
+            ee_vel = ee_state[:, 7:10]
+            ee_speed = torch.norm(ee_vel, dim=-1)
+
+            cmd = base_env.command_manager.get_command("ee_pose")
+            g_pos, g_quat = cmd[:, :3], cmd[:, 3:7]
+
+            from fetch_project.tasks.manipulation.reach.mdp.utils import keypoint_distance
+            _, kp_dist = keypoint_distance(ee_pos, ee_quat, g_pos, g_quat, 0.3)
+
+            close = (kp_dist < 0.15).float().mean().item()
+            slow = (ee_speed < 0.05).float().mean().item()
+            settled = ((kp_dist < 0.15) & (ee_speed < 0.05)).float().mean().item()
+
+            print(f"\n[PLAY step={timestep}]")
+            print(f"  kp_dist: mean={kp_dist.mean().item():.4f}m  median={kp_dist.median().item():.4f}m  "
+                  f"min={kp_dist.min().item():.4f}m  max={kp_dist.max().item():.4f}m")
+            print(f"  ee_speed: mean={ee_speed.mean().item():.4f}m/s  max={ee_speed.max().item():.4f}m/s")
+            print(f"  close(<0.15m): {100*close:.0f}%  slow(<0.05m/s): {100*slow:.0f}%  settled: {100*settled:.0f}%")
+            print(f"  Stage0 threshold=0.08m → {'✓ PASS' if kp_dist.median().item() < 0.08 else '✗ FAIL'} (median)")
+
         if args_cli.video:
-            timestep += 1
             if timestep == args_cli.video_length:
                 break
 

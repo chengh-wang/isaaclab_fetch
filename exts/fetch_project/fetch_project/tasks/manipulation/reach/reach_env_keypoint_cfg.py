@@ -96,8 +96,8 @@ class KeypointCommandsCfg:
             pos_y=(-.5, .5),
             pos_z=(0.4, 1.1),
             # Tightened to Fetch-reachable orientation ranges
-            roll=(-3.14, 3.14),
-            pitch=(-3.14, 3.14),
+            roll=(-0.5, 0.5),  
+            pitch=(-1.0, 0.3),
             yaw=(-3.14, 3.14),
         ),
         success_threshold=0.001,
@@ -155,6 +155,15 @@ class KeypointObservationsCfg:
                 "asset_cfg": SceneEntityCfg("robot", body_names=["wrist_roll_link"]),
                 "cube_side": CUBE_SIDE,
             },
+        )
+        # === BASE STATE: critical for closed-loop base control ===
+        base_lin_vel = ObsTerm(
+            func=mdp.base_lin_vel,
+            noise=Unoise(n_min=-0.1, n_max=0.1),
+        )
+        base_ang_vel = ObsTerm(
+            func=mdp.base_ang_vel,
+            noise=Unoise(n_min=-0.2, n_max=0.2),
         )
         actions = ObsTerm(func=mdp.last_action)
 
@@ -229,7 +238,7 @@ class KeypointRewardsCfg:
 
     kp_tanh = RewTerm(
         func=mdp.keypoint_tracking_tanh,
-        weight=5.0,
+        weight=10,
         params={**_KP, "sigma": 0.05},
     )
 
@@ -298,7 +307,11 @@ class KeypointRewardsCfg:
                 "contact_forces",
                 body_names=[
                     ".*(?<!l_wheel_link)(?<!r_wheel_link)"
-                    "(?<!l_gripper_finger_link)(?<!r_gripper_finger_link)$"
+                    "(?<!l_gripper_finger_link)(?<!r_gripper_finger_link)"
+                    "(?<!base_link)"
+                    "(?<!bl_caster_link)(?<!br_caster_link)"
+                    "(?<!fl_caster_link)(?<!fr_caster_link)"
+                    "(?<!caster_link)(?<!caster_bottom_link)$"
                 ],
             ),
             "threshold": 1.0,
@@ -364,7 +377,8 @@ class ReachEnvKeypointCfg(ManagerBasedRLEnvCfg):
     events: KeypointEventCfg = KeypointEventCfg()
     rewards: KeypointRewardsCfg = KeypointRewardsCfg()
     terminations: KeypointTerminationsCfg = KeypointTerminationsCfg()
-    curriculum: KeypointCurriculumCfg = KeypointCurriculumCfg()
+    # curriculum: KeypointCurriculumCfg = KeypointCurriculumCfg()
+    curriculum: KeypointCurriculumCfg = None
 
     def __post_init__(self):
         self.decimation = 4

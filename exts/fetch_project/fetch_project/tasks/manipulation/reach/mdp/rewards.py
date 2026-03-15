@@ -541,8 +541,8 @@ def keypoint_sigma_curriculum(
     command_name: str,
     asset_cfg: SceneEntityCfg,
     cube_side: float = 0.3,
-    arrival_threshold: float = 0.15,   # 15cm: 认为"到了附近"
-    speed_threshold: float = 0.05,     # 0.05 m/s: 认为"稳了"
+    arrival_threshold: float = 0.15,
+    speed_threshold: float = 0.1,
 ):
     stages = [
         {"threshold": 0.08, "sigma_exp": 0.15,  "sigma_tanh": 0.05},
@@ -563,7 +563,9 @@ def keypoint_sigma_curriculum(
         env._kp_settled_count = torch.zeros(env.num_envs, device=env.device)
 
     env._kp_curriculum_steps += 1
+    step = env._kp_curriculum_steps
     stage = env._kp_curriculum_stage
+    debug = (step % 100 == 0)  # Print every 100 steps
 
     if stage >= len(stages) - 1:
         return
@@ -577,7 +579,19 @@ def keypoint_sigma_curriculum(
     ee_speed = torch.norm(ee_vel, dim=-1)
 
     # "Settled" = close enough AND slow enough
-    settled = (kp_dist < arrival_threshold) & (ee_speed < speed_threshold)
+    close_enough = kp_dist < arrival_threshold
+    slow_enough = ee_speed < speed_threshold
+    settled = close_enough & slow_enough
+
+    if debug:
+        n = env.num_envs
+        print(f"\n[Curriculum DEBUG] step={step} stage={stage}/{len(stages)-1}")
+        print(f"  kp_dist:  mean={kp_dist.mean().item():.4f}m  median={kp_dist.median().item():.4f}m  "
+              f"min={kp_dist.min().item():.4f}m  max={kp_dist.max().item():.4f}m")
+        print(f"  ee_speed: mean={ee_speed.mean().item():.4f}m/s  max={ee_speed.max().item():.4f}m/s")
+        print(f"  close_enough (<{arrival_threshold}m): {close_enough.sum().item()}/{n} ({100*close_enough.float().mean().item():.1f}%)")
+        print(f"  slow_enough  (<{speed_threshold}m/s): {slow_enough.sum().item()}/{n} ({100*slow_enough.float().mean().item():.1f}%)")
+        print(f"  settled (both):  {settled.sum().item()}/{n} ({100*settled.float().mean().item():.1f}%)")
 
     # Accumulate error only for settled envs
     env._kp_settled_sum[settled] += kp_dist[settled]
@@ -589,23 +603,39 @@ def keypoint_sigma_curriculum(
         env._kp_settled_count[env_ids] = 0.0
 
     # Min steps guard
-    if env._kp_curriculum_steps < 1500 * (stage + 1):
+    min_steps = 1500 * (stage + 1)
+    if step < min_steps:
+        if debug:
+            print(f"  BLOCKED: min_steps guard ({step}/{min_steps})")
         return
 
     # Need enough settled samples to make a decision
     has_data = env._kp_settled_count > 10  # at least 10 settled steps
-    if has_data.sum() < env.num_envs * 0.3:
-        # Less than 30% envs have enough settled data
+    has_data_count = has_data.sum().item()
+    need_count = env.num_envs * 0.3
+    if has_data_count < need_count:
+        if debug:
+            print(f"  BLOCKED: not enough settled data. {has_data_count:.0f}/{need_count:.0f} envs have >10 settled steps")
+            # Show distribution of settled counts
+            sc = env._kp_settled_count
+            print(f"  settled_count: mean={sc.mean().item():.1f}  max={sc.max().item():.0f}  "
+                  f">0: {(sc>0).sum().item()}  >5: {(sc>5).sum().item()}  >10: {(sc>10).sum().item()}")
         return
 
     # Compute mean settled error per env, then take median across envs
     settled_mean = env._kp_settled_sum[has_data] / env._kp_settled_count[has_data]
     median_settled = settled_mean.median().item()
+    threshold = stages[stage]["threshold"]
 
-    if median_settled < stages[stage]["threshold"]:
+    if median_settled < threshold:
         env._kp_curriculum_below_count += 1
     else:
         env._kp_curriculum_below_count = 0
+
+    if debug:
+        print(f"  median_settled_error={median_settled:.4f}m  vs  threshold={threshold:.4f}m  "
+              f"{'✓ BELOW' if median_settled < threshold else '✗ ABOVE'}")
+        print(f"  below_count={env._kp_curriculum_below_count}/100")
 
     if env._kp_curriculum_below_count >= 100:
         env._kp_curriculum_below_count = 0
@@ -616,8 +646,10 @@ def keypoint_sigma_curriculum(
         # Reset settled tracking for fresh start at new stage
         env._kp_settled_sum.zero_()
         env._kp_settled_count.zero_()
-        print(f"[Curriculum] Stage {stage}: sigma_exp={stages[stage]['sigma_exp']}, "
+        print(f"\n{'='*60}")
+        print(f"[Curriculum] ▶ Stage {stage}: sigma_exp={stages[stage]['sigma_exp']}, "
               f"sigma_tanh={stages[stage]['sigma_tanh']}, median_settled={median_settled:.4f}m")
+        print(f"{'='*60}\n")
               
 def keypoint_metrics(
     env: ManagerBasedRLEnv,
