@@ -56,17 +56,42 @@ from rsl_rl.runners import OnPolicyRunner
 
 # Import extensions to set up environment tasks
 import fetch_project.tasks  # noqa: F401
+from sim_logger import SimLogger
 
 from isaaclab_tasks.utils import get_checkpoint_path, parse_env_cfg
 from isaaclab_rl.rsl_rl import RslRlOnPolicyRunnerCfg, RslRlVecEnvWrapper, export_policy_as_onnx
 from isaaclab.utils.dict import print_dict
+from isaaclab.utils.io import load_pickle
+
+
+def _load_env_cfg_for_run(task_name: str, device: str, num_envs: int | None, agent_cfg) -> tuple[object, str]:
+    """Load the environment config saved with the checkpoint run when available."""
+    log_root_path = os.path.abspath(os.path.join("logs", "rsl_rl", agent_cfg.experiment_name))
+    print(f"[INFO] Loading experiment from directory: {log_root_path}")
+    resume_path = get_checkpoint_path(log_root_path, agent_cfg.load_run, agent_cfg.load_checkpoint)
+    print(f"[INFO]: Loading model checkpoint from: {resume_path}")
+
+    env_cfg_path = os.path.join(os.path.dirname(resume_path), "params", "env.pkl")
+    if os.path.exists(env_cfg_path):
+        print(f"[INFO] Loading environment config from run: {env_cfg_path}")
+        env_cfg = load_pickle(env_cfg_path)
+        env_cfg.sim.device = device
+        if num_envs is not None:
+            env_cfg.scene.num_envs = num_envs
+    else:
+        print(f"[WARN] Saved environment config not found at: {env_cfg_path}")
+        print("[WARN] Falling back to the current task configuration.")
+        env_cfg = parse_env_cfg(task_name, num_envs=num_envs, device=device)
+
+    return env_cfg, resume_path
 
 
 def main():
     """Play with RSL-RL agent."""
-    # parse configuration
-    env_cfg = parse_env_cfg(args_cli.task, num_envs=args_cli.num_envs, device=args_cli.device)
     agent_cfg: RslRlOnPolicyRunnerCfg = cli_args.parse_rsl_rl_cfg(args_cli.task, args_cli)
+    env_cfg, resume_path = _load_env_cfg_for_run(
+        args_cli.task, device=args_cli.device, num_envs=args_cli.num_envs, agent_cfg=agent_cfg
+    )
 
     # ── Camera: track env 0 from a specific angle ──
     if args_cli.video:
@@ -77,13 +102,6 @@ def main():
 
     # create isaac environment
     env = gym.make(args_cli.task, cfg=env_cfg, render_mode="rgb_array" if args_cli.video else None)
-
-    # specify directory for logging experiments
-    log_root_path = os.path.join("logs", "rsl_rl", agent_cfg.experiment_name)
-    log_root_path = os.path.abspath(log_root_path)
-    print(f"[INFO] Loading experiment from directory: {log_root_path}")
-    resume_path = get_checkpoint_path(log_root_path, agent_cfg.load_run, agent_cfg.load_checkpoint)
-    print(f"[INFO]: Loading model checkpoint from: {resume_path}")
 
     log_dir = os.path.dirname(resume_path)
 
@@ -114,9 +132,53 @@ def main():
     export_model_dir = os.path.join(os.path.dirname(resume_path), "exported")
     export_policy_as_onnx(ppo_runner.alg.policy, export_model_dir, filename="policy.onnx")
     # reset environment
-    obs, _ = env.get_observations()
+    obs = env.get_observations()
+    # obs is a TensorDict keyed by observation group; extract 'policy' tensor for debug prints
+    if hasattr(obs, "keys") and "policy" in obs.keys():
+        obs_tensor = obs["policy"]
+    else:
+        obs_tensor = obs
     print("JOINT NAMES:", env.unwrapped.scene['robot'].joint_names)
-    print("OBS SHAPE:", obs.shape)
+    print("OBS SHAPE:", obs_tensor.shape)
+  
+    # ── ADD THIS BLOCK ──
+    robot = env.unwrapped.scene['robot']
+    print("\n=== Joint Order Debug ===")
+    for i, name in enumerate(robot.joint_names):
+        print(f"  [{i}] {name}")
+    
+    # Check actual obs values
+    print("\n=== Obs Breakdown ===")
+    o = obs_tensor[0].cpu().numpy()
+    joint_obs_dim = len(env_cfg.observations.policy.joint_pos.params["asset_cfg"].joint_names)
+    kp_obs_dim = 9
+    action_dim = sum(
+        len(getattr(action_term, "joint_names", []) or [])
+        if hasattr(action_term, "joint_names")
+        else 2
+        for action_term in env_cfg.actions.__dict__.values()
+        if hasattr(action_term, "class_type")
+    )
+    vel_obs_dim = (len(o) - joint_obs_dim - kp_obs_dim - action_dim) // 2
+    cursor = 0
+    print(f"  joint_pos_rel ({joint_obs_dim}): {o[cursor:cursor + joint_obs_dim]}")
+    cursor += joint_obs_dim
+    print(f"  kp_command    ({kp_obs_dim}): {o[cursor:cursor + kp_obs_dim]}")
+    cursor += kp_obs_dim
+    print(f"  base_lin_vel  ({vel_obs_dim}): {o[cursor:cursor + vel_obs_dim]}")
+    cursor += vel_obs_dim
+    print(f"  base_ang_vel  ({vel_obs_dim}): {o[cursor:cursor + vel_obs_dim]}")
+    cursor += vel_obs_dim
+    print(f"  last_action  ({action_dim}): {o[cursor:cursor + action_dim]}")
+    
+    # Find resolved joint indices for joint_pos term
+    joint_names_train = env_cfg.actions.arm_action.joint_names
+    resolved_ids = robot.find_joints(joint_names_train)[0]
+    print(f"\n=== Resolved joint IDs for obs ===")
+    for name, idx in zip(joint_names_train, resolved_ids):
+        print(f"  {name} -> isaac index {idx}")
+    # ── END BLOCK ──
+    logger = SimLogger(env, log_dir=os.path.join(log_dir, "play_logs"))
     timestep = 0
 
     # simulate environment
@@ -124,7 +186,18 @@ def main():
         with torch.inference_mode():
             actions = policy(obs)
             obs, _, _, _ = env.step(actions)
-
+            logger.log(env, obs, actions)
+            # ── DEBUG: print first 5 steps ──
+            # if timestep < 5:
+            #     print(f"\n=== Step {timestep} ===")
+            #     print(f"OBS shape: {obs.shape}")
+            #     print(f"OBS [env0]: {obs[0].cpu().numpy()}")
+            #     # Split obs into terms: joint_pos(8) + kp_command(9) + last_action(10)
+            #     o = obs[0].cpu().numpy()
+            #     print(f"  joint_pos_rel (8): {o[:8]}")
+            #     print(f"  kp_command    (9): {o[8:17]}")
+            #     print(f"  last_action  (10): {o[17:27]}")
+            #     print(f"ACTION [env0]: {actions[0].cpu().numpy()}")
         timestep += 1
 
         # --- Debug: curriculum-relevant stats ---
@@ -158,6 +231,7 @@ def main():
             if timestep == args_cli.video_length:
                 break
 
+    logger.close()
     # close the simulator
     env.close()
 

@@ -27,6 +27,7 @@ from isaaclab.utils import configclass
 from isaaclab.utils.noise import AdditiveUniformNoiseCfg as Unoise
 
 import fetch_project.tasks.manipulation.reach.mdp as mdp
+from fetch_project.robots.fetch import FETCH_WHEEL_RADIUS_EFF, FETCH_WHEEL_SEPARATION_EFF
 
 
 # ============================================================================
@@ -89,12 +90,12 @@ class SimpleCommandsCfg:
             pos_x=(-0.5, 0.7),
             pos_y=(-0.5, 0.5),
             pos_z=(0.4, 1.1),
-            roll=(-3.14, 3.14),
-            pitch=(-3.14, 3.14),  # ~±45° around pi/2 for Fetch EE axis
-            yaw=(-3.14, 3.14),
+            roll=(-0.3, 0.3),
+            pitch=(1.5707963267948966, 1.5707963267948966),
+            yaw=(-1.57, 1.57),
         ),
-        success_threshold=0.001,
-        ori_threshold=0.01,
+        success_threshold=0.04,
+        ori_threshold=0.25,
         settling_speed_threshold=0.08,
         hold_time_range=(1.0, 3.0),
         resampling_time_range=(1e9, 1e9),
@@ -132,8 +133,8 @@ class SimpleActionsCfg:
         asset_name="robot",
         left_wheel_joint_name="l_wheel_joint",
         right_wheel_joint_name="r_wheel_joint",
-        wheel_radius=0.0625,
-        wheel_separation=0.372,
+        wheel_radius=FETCH_WHEEL_RADIUS_EFF,
+        wheel_separation=FETCH_WHEEL_SEPARATION_EFF,
         max_linear_velocity=0.3,
         max_angular_velocity=0.5,
     )

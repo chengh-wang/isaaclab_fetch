@@ -104,7 +104,7 @@ class KeypointMetricsWrapper:
 
         # --- 3. Action magnitudes ---
         act = base_env.action_manager.action
-        n_arm = 8  # torso + 7 arm joints
+        n_arm = 7  # 7 arm joints (no torso)
         if act.shape[1] >= n_arm + 2:
             arm_act = act[:, :n_arm]
             base_act = act[:, n_arm:n_arm + 2]
@@ -161,7 +161,11 @@ class KeypointMetricsWrapper:
         infos["log"]["Debug/joints_at_limit_mean"] = (at_lower + at_upper).mean().item()
 
         # --- 7. NaN/Inf check ---
-        has_nan_obs = torch.isnan(obs).any().item() or torch.isinf(obs).any().item()
+        # obs may be a TensorDict, so check each value tensor
+        if hasattr(obs, 'values'):
+            has_nan_obs = any(torch.isnan(v).any().item() or torch.isinf(v).any().item() for v in obs.values())
+        else:
+            has_nan_obs = torch.isnan(obs).any().item() or torch.isinf(obs).any().item()
         has_nan_rew = torch.isnan(rew).any().item() or torch.isinf(rew).any().item()
         has_nan_act = torch.isnan(act).any().item() or torch.isinf(act).any().item()
         if has_nan_obs or has_nan_rew or has_nan_act:

@@ -8,7 +8,7 @@ from isaaclab.utils import configclass
 
 import fetch_project.tasks.manipulation.reach.mdp as mdp
 from fetch_project.tasks.manipulation.reach.reach_env_simple_cfg import ReachEnvSimpleCfg
-from fetch_project.robots.fetch import FETCH_URDF_CFG, FETCH_CFG
+from fetch_project.robots.fetch import FETCH_CFG, FETCH_FOLD_CFG, FETCH_CFG_PACE
 
 
 FETCH_ARM_JOINTS = [
@@ -30,8 +30,7 @@ class FetchReachSimpleEnvCfg(ReachEnvSimpleCfg):
         super().__post_init__()
 
         # Robot
-        self.scene.robot = FETCH_CFG.replace(prim_path="{ENV_REGEX_NS}/Robot")
-        # self.scene.robot = FETCH_URDF_CFG.replace(prim_path="{ENV_REGEX_NS}/Robot")
+        self.scene.robot = FETCH_CFG_PACE.replace(prim_path="{ENV_REGEX_NS}/Robot")
         self.events.reset_robot_joints.params["position_range"] = (-0.5, 0.5)
 
         # Arm action

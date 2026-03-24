@@ -4,13 +4,12 @@ from isaaclab.sensors import ContactSensorCfg
 from isaaclab.utils import configclass
 
 import fetch_project.tasks.manipulation.reach.mdp as mdp
-from fetch_project.robots.fetch import FETCH_CFG
+from fetch_project.robots.fetch import FETCH_CFG_PACE, FETCH_ARM_ACTION_SCALE,FETCH_CFG_IMPLICIT
 
 from fetch_project.tasks.manipulation.reach.reach_env_keypoint_cfg import ReachEnvKeypointCfg
 
 
 FETCH_ARM_JOINTS = [
-    "torso_lift_joint",
     "shoulder_pan_joint",
     "shoulder_lift_joint",
     "upperarm_roll_joint",
@@ -28,7 +27,7 @@ class FetchReachKeypointEnvCfg(ReachEnvKeypointCfg):
         super().__post_init__()
 
         # Robot
-        self.scene.robot = FETCH_CFG.replace(prim_path="{ENV_REGEX_NS}/Robot")
+        self.scene.robot = FETCH_CFG_IMPLICIT.replace(prim_path="{ENV_REGEX_NS}/Robot")
 
         # Wider joint reset range for exploration
         self.events.reset_robot_joints.params["position_range"] = (-0.5, 0.5)
@@ -37,7 +36,7 @@ class FetchReachKeypointEnvCfg(ReachEnvKeypointCfg):
         self.actions.arm_action = mdp.JointPositionActionCfg(
             asset_name="robot",
             joint_names=FETCH_ARM_JOINTS,
-            scale=0.5,
+            scale=FETCH_ARM_ACTION_SCALE,
             use_default_offset=True,
         )
 
@@ -47,14 +46,6 @@ class FetchReachKeypointEnvCfg(ReachEnvKeypointCfg):
         # Arm joint names for weighted regularization
         self.rewards.action_rate.params["arm_joint_names"] = FETCH_ARM_JOINTS
         self.rewards.joint_vel.params["arm_joint_names"] = FETCH_ARM_JOINTS
-
-        # Contact sensor
-        self.scene.contact_forces = ContactSensorCfg(
-            prim_path="{ENV_REGEX_NS}/Robot/.*",
-            history_length=3,
-            track_air_time=False,
-            force_threshold=1.0,
-        )
 
 
 @configclass

@@ -28,6 +28,7 @@ from isaaclab.utils import configclass
 from isaaclab.utils.noise import AdditiveUniformNoiseCfg as Unoise
 
 import fetch_project.tasks.manipulation.reach.mdp as mdp
+from fetch_project.robots.fetch import FETCH_WHEEL_RADIUS_EFF, FETCH_WHEEL_SEPARATION_EFF, FETCH_ARM_ACTION_SCALE, FETCH_CFG_IMPLICIT
 
 
 # =============================================================================
@@ -37,7 +38,6 @@ import fetch_project.tasks.manipulation.reach.mdp as mdp
 CUBE_SIDE = 0.3  # Virtual cube side length — controls pos/ori trade-off
 
 FETCH_ARM_JOINTS = [
-    "torso_lift_joint",
     "shoulder_pan_joint",
     "shoulder_lift_joint",
     "upperarm_roll_joint",
@@ -92,9 +92,9 @@ class KeypointCommandsCfg:
         asset_name="robot",
         body_name="wrist_roll_link",
         ranges=mdp.WorldPoseCommandCfg.Ranges(
-            pos_x=(-0.5, 1.0),
-            pos_y=(-.5, .5),
-            pos_z=(0.4, 1.1),
+            pos_x=(-0., 0.6),
+            pos_y=(-.2, .2),
+            pos_z=(0.4, 0.8),
             # Tightened to Fetch-reachable orientation ranges
             roll=(-0.5, 0.5),  
             pitch=(-1.0, 0.3),
@@ -118,19 +118,22 @@ class KeypointActionsCfg:
     arm_action: ActionTerm = mdp.JointPositionActionCfg(
         asset_name="robot",
         joint_names=FETCH_ARM_JOINTS,
-        scale=0.5,
+        # scale=0.5,  # saturates actuators — see FETCH_ARM_ACTION_SCALE
+        scale=FETCH_ARM_ACTION_SCALE,
         use_default_offset=True,
     )
 
-    base_action: ActionTerm = mdp.DifferentialDriveActionCfg(
-        asset_name="robot",
-        left_wheel_joint_name="l_wheel_joint",
-        right_wheel_joint_name="r_wheel_joint",
-        wheel_radius=0.0625,
-        wheel_separation=0.372,
-        max_linear_velocity=0.3,
-        max_angular_velocity=0.5,
-    )
+    # base_action: ActionTerm = mdp.DifferentialDriveActionCfg(
+    #     asset_name="robot",
+    #     left_wheel_joint_name="l_wheel_joint",
+    #     right_wheel_joint_name="r_wheel_joint",
+    #     wheel_radius=FETCH_WHEEL_RADIUS_EFF,
+    #     wheel_separation=FETCH_WHEEL_SEPARATION_EFF,
+    #     linear_velocity_scale=0.22008,
+    #     angular_velocity_scale=1.048,
+    #     max_linear_velocity=0.22008,
+    #     max_angular_velocity=1.048,
+    # )
 
 
 # =============================================================================
@@ -143,13 +146,18 @@ class KeypointObservationsCfg:
     @configclass
     class PolicyCfg(ObsGroup):
         joint_pos = ObsTerm(
-            func=mdp.joint_pos_rel,
+            func=mdp.delayed_joint_pos_rel,
             noise=Unoise(n_min=-0.01, n_max=0.01),
+            params={"asset_cfg": SceneEntityCfg("robot", joint_names=FETCH_ARM_JOINTS)},
+        )
+        joint_vel = ObsTerm(
+            func=mdp.delayed_joint_vel_rel,
+            noise=Unoise(n_min=-0.1, n_max=0.1),
             params={"asset_cfg": SceneEntityCfg("robot", joint_names=FETCH_ARM_JOINTS)},
         )
         # === KEYPOINT OBS: 9-dim replaces 7-dim pos+quat delta ===
         kp_command = ObsTerm(
-            func=mdp.keypoint_command_in_body_frame,
+            func=mdp.delayed_kp_cmd,
             params={
                 "command_name": "ee_pose",
                 "asset_cfg": SceneEntityCfg("robot", body_names=["wrist_roll_link"]),
@@ -157,14 +165,15 @@ class KeypointObservationsCfg:
             },
         )
         # === BASE STATE: critical for closed-loop base control ===
-        base_lin_vel = ObsTerm(
-            func=mdp.base_lin_vel,
-            noise=Unoise(n_min=-0.1, n_max=0.1),
-        )
-        base_ang_vel = ObsTerm(
-            func=mdp.base_ang_vel,
-            noise=Unoise(n_min=-0.2, n_max=0.2),
-        )
+        # base_lin_vel = ObsTerm(
+        #     func=mdp.delayed_base_lin_vel,
+        #     noise=Unoise(n_min=-0.1, n_max=0.1),
+        # )
+        # base_ang_vel = ObsTerm(
+        #     func=mdp.delayed_base_ang_vel,
+        #     noise=Unoise(n_min=-0.2, n_max=0.2),
+        # )
+        # actions don't need delay (already from previous step)
         actions = ObsTerm(func=mdp.last_action)
 
         def __post_init__(self):
@@ -190,12 +199,18 @@ class KeypointEventCfg:
         },
     )
 
+    reset_obs_delays = EventTerm(
+        func=mdp.reset_obs_delay_buffers,
+        mode="reset",
+    )
+
     reset_robot_joints = EventTerm(
-        func=mdp.reset_joints_by_offset,
+        func=mdp.reset_selected_joints_by_offset,
         mode="reset",
         params={
             "position_range": (-0.1, 0.1),
             "velocity_range": (0.0, 0.0),
+            "asset_cfg": SceneEntityCfg("robot", joint_names=FETCH_ARM_JOINTS),
         },
     )
 
@@ -276,8 +291,8 @@ class KeypointRewardsCfg:
             "asset_cfg": SceneEntityCfg("robot"),
             "arm_joint_names": FETCH_ARM_JOINTS,
             "base_joint_names": ["l_wheel_joint", "r_wheel_joint"],
-            "arm_weight": 1e-1,   # Reduced from 5e-1 to allow arm exploration
-            "base_weight": 1e-1,
+            "arm_weight": 1e-5, 
+            "base_weight": 1e-2,
         },
     )
 
@@ -288,7 +303,7 @@ class KeypointRewardsCfg:
             "asset_cfg": SceneEntityCfg("robot"),
             "arm_joint_names": FETCH_ARM_JOINTS,
             "base_joint_names": ["l_wheel_joint", "r_wheel_joint"],
-            "arm_weight": 1e-2,
+            "arm_weight": 1e-4,
             "base_weight": 1e-2,
         },
     )
