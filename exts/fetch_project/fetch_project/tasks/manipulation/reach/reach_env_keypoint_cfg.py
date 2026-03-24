@@ -26,8 +26,10 @@ from isaaclab.scene import InteractiveSceneCfg
 from isaaclab.sensors import ContactSensorCfg
 from isaaclab.utils import configclass
 from isaaclab.utils.noise import AdditiveUniformNoiseCfg as Unoise
+from isaaclab.utils.modifiers import ModifierCfg
 
 import fetch_project.tasks.manipulation.reach.mdp as mdp
+from fetch_project.tasks.manipulation.reach.mdp.delayed_obs import ObsDelayModifier
 from fetch_project.robots.fetch import FETCH_WHEEL_RADIUS_EFF, FETCH_WHEEL_SEPARATION_EFF, FETCH_ARM_ACTION_SCALE, FETCH_CFG_IMPLICIT
 
 
@@ -146,18 +148,21 @@ class KeypointObservationsCfg:
     @configclass
     class PolicyCfg(ObsGroup):
         joint_pos = ObsTerm(
-            func=mdp.delayed_joint_pos_rel,
+            func=mdp.joint_pos_rel,
+            modifiers=[ModifierCfg(func=ObsDelayModifier, params={"min_delay_steps": 0, "max_delay_steps": 5})],
             noise=Unoise(n_min=-0.01, n_max=0.01),
             params={"asset_cfg": SceneEntityCfg("robot", joint_names=FETCH_ARM_JOINTS)},
         )
         joint_vel = ObsTerm(
-            func=mdp.delayed_joint_vel_rel,
+            func=mdp.joint_vel_rel,
+            modifiers=[ModifierCfg(func=ObsDelayModifier, params={"min_delay_steps": 0, "max_delay_steps": 5})],
             noise=Unoise(n_min=-0.1, n_max=0.1),
             params={"asset_cfg": SceneEntityCfg("robot", joint_names=FETCH_ARM_JOINTS)},
         )
         # === KEYPOINT OBS: 9-dim replaces 7-dim pos+quat delta ===
         kp_command = ObsTerm(
-            func=mdp.delayed_kp_cmd,
+            func=mdp.keypoint_command_in_body_frame,
+            modifiers=[ModifierCfg(func=ObsDelayModifier, params={"min_delay_steps": 0, "max_delay_steps": 8})],
             params={
                 "command_name": "ee_pose",
                 "asset_cfg": SceneEntityCfg("robot", body_names=["wrist_roll_link"]),
@@ -166,11 +171,13 @@ class KeypointObservationsCfg:
         )
         # === BASE STATE: critical for closed-loop base control ===
         # base_lin_vel = ObsTerm(
-        #     func=mdp.delayed_base_lin_vel,
+        #     func=mdp.base_lin_vel,
+        #     modifiers=[ModifierCfg(func=ObsDelayModifier, params={"min_delay_steps": 0, "max_delay_steps": 2})],
         #     noise=Unoise(n_min=-0.1, n_max=0.1),
         # )
         # base_ang_vel = ObsTerm(
-        #     func=mdp.delayed_base_ang_vel,
+        #     func=mdp.base_ang_vel,
+        #     modifiers=[ModifierCfg(func=ObsDelayModifier, params={"min_delay_steps": 0, "max_delay_steps": 2})],
         #     noise=Unoise(n_min=-0.2, n_max=0.2),
         # )
         # actions don't need delay (already from previous step)
@@ -199,11 +206,6 @@ class KeypointEventCfg:
         },
     )
 
-    reset_obs_delays = EventTerm(
-        func=mdp.reset_obs_delay_buffers,
-        mode="reset",
-    )
-
     reset_robot_joints = EventTerm(
         func=mdp.reset_selected_joints_by_offset,
         mode="reset",
@@ -214,20 +216,20 @@ class KeypointEventCfg:
         },
     )
 
-    reset_robot_base = EventTerm(
-        func=mdp.reset_root_state_uniform,
-        mode="reset",
-        params={
-            "pose_range": {
-                "x": (0.0, 0.0), "y": (0.0, 0.0), "z": (0.0, 0.1),
-                "roll": (0.0, 0.0), "pitch": (0.0, 0.0), "yaw": (0.0, 0.0),
-            },
-            "velocity_range": {
-                "x": (0.0, 0.0), "y": (0.0, 0.0), "z": (0.0, 0.0),
-                "roll": (0.0, 0.0), "pitch": (0.0, 0.0), "yaw": (0.0, 0.0),
-            },
-        },
-    )
+    # reset_robot_base = EventTerm(
+    #     func=mdp.reset_root_state_uniform,
+    #     mode="reset",
+    #     params={
+    #         "pose_range": {
+    #             "x": (0.0, 0.0), "y": (0.0, 0.0), "z": (0.0, 0.1),
+    #             "roll": (0.0, 0.0), "pitch": (0.0, 0.0), "yaw": (0.0, 0.0),
+    #         },
+    #         "velocity_range": {
+    #             "x": (0.0, 0.0), "y": (0.0, 0.0), "z": (0.0, 0.0),
+    #             "roll": (0.0, 0.0), "pitch": (0.0, 0.0), "yaw": (0.0, 0.0),
+    #         },
+    #     },
+    # )
 
     # Reset keypoint progress tracker
     reset_kp_progress = EventTerm(
@@ -271,16 +273,16 @@ class KeypointRewardsCfg:
 
     # --- Base: approach + face target (kept from original) ---
 
-    base_move = RewTerm(
-        func=mdp.base_approach_facing,
-        weight=1.0,
-        params={
-            "command_name": "ee_pose",
-            "asset_cfg": SceneEntityCfg("robot"),
-            "approach_threshold": 0.5,
-            "approach_sigma": 0.3,
-        },
-    )
+    # base_move = RewTerm(
+    #     func=mdp.base_approach_facing,
+    #     weight=1.0,
+    #     params={
+    #         "command_name": "ee_pose",
+    #         "asset_cfg": SceneEntityCfg("robot"),
+    #         "approach_threshold": 0.5,
+    #         "approach_sigma": 0.3,
+    #     },
+    # )
 
     # --- Regularization (reduced arm_weight for more exploration) ---
 
@@ -292,7 +294,8 @@ class KeypointRewardsCfg:
             "arm_joint_names": FETCH_ARM_JOINTS,
             "base_joint_names": ["l_wheel_joint", "r_wheel_joint"],
             "arm_weight": 1e-5, 
-            "base_weight": 1e-2,
+            # "base_weight": 1e-2,
+            "base_weight": 0,
         },
     )
 
@@ -304,15 +307,16 @@ class KeypointRewardsCfg:
             "arm_joint_names": FETCH_ARM_JOINTS,
             "base_joint_names": ["l_wheel_joint", "r_wheel_joint"],
             "arm_weight": 1e-4,
-            "base_weight": 1e-2,
+            # "base_weight": 1e-2,
+            "base_weight": 0,
         },
     )
 
-    base_vel = RewTerm(
-        func=mdp.base_velocity_penalty,
-        weight=-1e-4,
-        params={"asset_cfg": SceneEntityCfg("robot")},
-    )
+    # base_vel = RewTerm(
+    #     func=mdp.base_velocity_penalty,
+    #     weight=-1e-4,
+    #     params={"asset_cfg": SceneEntityCfg("robot")},
+    # )
 
     undesired_contacts = RewTerm(
         func=mdp.undesired_contacts,
@@ -333,11 +337,11 @@ class KeypointRewardsCfg:
         },
     )
 
-    flat_orientation = RewTerm(
-        func=mdp.flat_orientation_l2,
-        weight=-0.1,
-        params={"asset_cfg": SceneEntityCfg("robot")},
-    )
+    # flat_orientation = RewTerm(
+    #     func=mdp.flat_orientation_l2,
+    #     weight=-0.1,
+    #     params={"asset_cfg": SceneEntityCfg("robot")},
+    # )
 
     # metrics = RewTerm(
     #     func=mdp.keypoint_metrics,
