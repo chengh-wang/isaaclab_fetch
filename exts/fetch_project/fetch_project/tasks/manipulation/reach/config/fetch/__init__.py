@@ -5,7 +5,11 @@
 
 import gymnasium as gym
 
-from . import agents, joint_pos_env_cfg, reach_keypoint_env_cfg, simple_env_cfg
+from . import agents, joint_pos_env_cfg, simple_env_cfg
+from fetch_project.tasks.manipulation.reach.reach_env_keypoint_cfg import (
+    ReachEnvKeypointCfg,
+    ReachEnvKeypointCfg_PLAY,
+)
 
 ##
 # Register Gym environments.
@@ -55,13 +59,12 @@ gym.register(
     },
 )
 
-
 gym.register(
     id="Isaac-Reach-Fetch-Keypoint-v0",
     entry_point="isaaclab.envs:ManagerBasedRLEnv",
     disable_env_checker=True,
     kwargs={
-        "env_cfg_entry_point": reach_keypoint_env_cfg.FetchReachKeypointEnvCfg,
+        "env_cfg_entry_point": ReachEnvKeypointCfg,
         "rsl_rl_cfg_entry_point": f"{agents.__name__}.rsl_rl_ppo_cfg:FetchReachPPORunnerCfg",
     },
 )
@@ -71,14 +74,10 @@ gym.register(
     entry_point="isaaclab.envs:ManagerBasedRLEnv",
     disable_env_checker=True,
     kwargs={
-        "env_cfg_entry_point": reach_keypoint_env_cfg.FetchReachKeypointEnvCfg_PLAY,
+        "env_cfg_entry_point": ReachEnvKeypointCfg_PLAY,
         "rsl_rl_cfg_entry_point": f"{agents.__name__}.rsl_rl_ppo_cfg:FetchReachPPORunnerCfg",
     },
 )
-
-
-
-
 
 
 

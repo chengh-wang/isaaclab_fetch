@@ -651,6 +651,35 @@ def keypoint_sigma_curriculum(
               f"sigma_tanh={stages[stage]['sigma_tanh']}, median_settled={median_settled:.4f}m")
         print(f"{'='*60}\n")
               
+def keypoint_settle(
+    env: ManagerBasedRLEnv,
+    command_name: str,
+    asset_cfg: SceneEntityCfg,
+    cube_side: float = 0.3,
+    sigma_d: float = 0.05,
+    sigma_v: float = 0.05,
+) -> torch.Tensor:
+    """R = exp(-d_kp / sigma_d) * exp(-||v_ee|| / sigma_v)
+
+    Unique global maximum at (d=0, v=0). Continuous, differentiable.
+    sigma_d: distance gate width, ~0.05-0.1m. Controls how early
+             the "slow down" signal kicks in during approach.
+    sigma_v: velocity tolerance, ~0.05 m/s. Controls how aggressively
+             residual velocity is penalized near target.
+    """
+    ee_p, ee_q, g_p, g_q = _ee_and_goal(env, command_name, asset_cfg)
+    _, mean_d = keypoint_distance(ee_p, ee_q, g_p, g_q, cube_side)
+
+    asset = env.scene[asset_cfg.name]
+    ee_vel = asset.data.body_state_w[:, asset_cfg.body_ids[0], 7:10]
+    ee_speed = torch.norm(ee_vel, dim=-1)
+
+    proximity = torch.exp(-mean_d / sigma_d)
+    stillness = torch.exp(-ee_speed / sigma_v)
+
+    return proximity * stillness
+
+
 def keypoint_metrics(
     env: ManagerBasedRLEnv,
     command_name: str,

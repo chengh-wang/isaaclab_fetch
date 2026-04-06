@@ -244,3 +244,55 @@ class DifferentialDriveActionCfg(ActionTermCfg):
     
     max_angular_velocity: float = 1.57
     """Maximum angular velocity in rad/s. Real Fetch: ~1.57 rad/s (90 deg/s)."""
+
+
+# — Joint position action with EMA smoothing for sim2real —
+
+from isaaclab.envs.mdp.actions.joint_actions import JointPositionAction
+from isaaclab.envs.mdp.actions.actions_cfg import JointPositionActionCfg
+
+
+class SmoothedJointPositionAction(JointPositionAction):
+    """JointPositionAction + EMA smoothing.
+
+    Inherits all dict-scale/offset/clip handling from JointPositionAction.
+    Only adds EMA filter on top of processed_actions.
+    """
+
+    cfg: "SmoothedJointPositionActionCfg"
+
+    def __init__(self, cfg: "SmoothedJointPositionActionCfg", env: ManagerBasedEnv):
+        super().__init__(cfg, env)
+        self._alpha = cfg.smoothing_alpha
+        self._smoothed_target = None  # lazy init
+        print(f"[SmoothedJointPositionAction] alpha={self._alpha}")
+
+    def process_actions(self, actions: torch.Tensor):
+        # Let parent handle: raw_actions, scale, offset, clip → _processed_actions
+        super().process_actions(actions)
+
+        # Lazy init to current joint pos (avoids discontinuity on first step)
+        if self._smoothed_target is None:
+            self._smoothed_target = self._asset.data.joint_pos[:, self._joint_ids].clone()
+
+        # EMA: y_t = α * x_t + (1 - α) * y_{t-1}
+        self._smoothed_target = (
+            self._alpha * self._processed_actions
+            + (1.0 - self._alpha) * self._smoothed_target
+        )
+        self._processed_actions[:] = self._smoothed_target
+
+    def reset(self, env_ids: Sequence[int] | None = None):
+        super().reset(env_ids)
+        if env_ids is None:
+            self._smoothed_target = None
+        elif self._smoothed_target is not None:
+            self._smoothed_target[env_ids] = (
+                self._asset.data.joint_pos[env_ids][:, self._joint_ids]
+            )
+
+
+@configclass
+class SmoothedJointPositionActionCfg(JointPositionActionCfg):
+    class_type: type[ActionTerm] = SmoothedJointPositionAction
+    smoothing_alpha: float = 0.3

@@ -30,7 +30,9 @@ from isaaclab.utils.modifiers import ModifierCfg
 
 import fetch_project.tasks.manipulation.reach.mdp as mdp
 from fetch_project.tasks.manipulation.reach.mdp.delayed_obs import ObsDelayModifier
-from fetch_project.robots.fetch import FETCH_WHEEL_RADIUS_EFF, FETCH_WHEEL_SEPARATION_EFF, FETCH_ARM_ACTION_SCALE, FETCH_CFG_IMPLICIT
+from fetch_project.robots.fetch import FETCH_WHEEL_RADIUS_EFF, FETCH_WHEEL_SEPARATION_EFF, FETCH_ARM_ACTION_SCALE, FETCH_CFG_IMPLICIT, FETCH_CFG_PACE
+from isaaclab.envs.mdp import joint_torques_l2
+from fetch_project.tasks.manipulation.reach.mdp.actions import SmoothedJointPositionActionCfg
 
 
 # =============================================================================
@@ -94,13 +96,13 @@ class KeypointCommandsCfg:
         asset_name="robot",
         body_name="wrist_roll_link",
         ranges=mdp.WorldPoseCommandCfg.Ranges(
-            pos_x=(-0., 0.6),
+            pos_x=(0.25, 0.4),
             pos_y=(-.2, .2),
-            pos_z=(0.4, 0.8),
+            pos_z=(0.4, 0.7),
             # Tightened to Fetch-reachable orientation ranges
             roll=(-0.5, 0.5),  
-            pitch=(-1.0, 0.3),
-            yaw=(-3.14, 3.14),
+            pitch=(-0.5, 0.5),
+            yaw=(-0.5, 0.5),
         ),
         success_threshold=0.001,
         ori_threshold=0.01,
@@ -117,11 +119,19 @@ class KeypointCommandsCfg:
 
 @configclass
 class KeypointActionsCfg:
+    # arm_action: ActionTerm = SmoothedJointPositionActionCfg(
+    #     asset_name="robot",
+    #     joint_names=FETCH_ARM_JOINTS,
+    #     # scale=FETCH_ARM_ACTION_SCALE,
+    #     scale=0.25,
+    #     use_default_offset=True,
+    #     smoothing_alpha=0.5,
+    # )
     arm_action: ActionTerm = mdp.JointPositionActionCfg(
         asset_name="robot",
         joint_names=FETCH_ARM_JOINTS,
-        # scale=0.5,  # saturates actuators — see FETCH_ARM_ACTION_SCALE
-        scale=FETCH_ARM_ACTION_SCALE,
+        scale=0.25,  # saturates actuators — see FETCH_ARM_ACTION_SCALE
+        # scale=FETCH_ARM_ACTION_SCALE,
         use_default_offset=True,
     )
 
@@ -149,20 +159,20 @@ class KeypointObservationsCfg:
     class PolicyCfg(ObsGroup):
         joint_pos = ObsTerm(
             func=mdp.joint_pos_rel,
-            modifiers=[ModifierCfg(func=ObsDelayModifier, params={"min_delay_steps": 0, "max_delay_steps": 5})],
+            modifiers=[ModifierCfg(func=ObsDelayModifier, params={"min_delay_steps": 0, "max_delay_steps": 1})],
             noise=Unoise(n_min=-0.01, n_max=0.01),
             params={"asset_cfg": SceneEntityCfg("robot", joint_names=FETCH_ARM_JOINTS)},
         )
         joint_vel = ObsTerm(
             func=mdp.joint_vel_rel,
-            modifiers=[ModifierCfg(func=ObsDelayModifier, params={"min_delay_steps": 0, "max_delay_steps": 5})],
+            modifiers=[ModifierCfg(func=ObsDelayModifier, params={"min_delay_steps": 0, "max_delay_steps": 1})],
             noise=Unoise(n_min=-0.1, n_max=0.1),
             params={"asset_cfg": SceneEntityCfg("robot", joint_names=FETCH_ARM_JOINTS)},
         )
         # === KEYPOINT OBS: 9-dim replaces 7-dim pos+quat delta ===
         kp_command = ObsTerm(
             func=mdp.keypoint_command_in_body_frame,
-            modifiers=[ModifierCfg(func=ObsDelayModifier, params={"min_delay_steps": 0, "max_delay_steps": 8})],
+            modifiers=[ModifierCfg(func=ObsDelayModifier, params={"min_delay_steps": 0, "max_delay_steps": 1})],
             params={
                 "command_name": "ee_pose",
                 "asset_cfg": SceneEntityCfg("robot", body_names=["wrist_roll_link"]),
@@ -255,8 +265,8 @@ class KeypointRewardsCfg:
 
     kp_tanh = RewTerm(
         func=mdp.keypoint_tracking_tanh,
-        weight=10,
-        params={**_KP, "sigma": 0.05},
+        weight=7.5,
+        params={**_KP, "sigma": 0.025},
     )
 
     kp_l2 = RewTerm(
@@ -269,6 +279,18 @@ class KeypointRewardsCfg:
         func=mdp.keypoint_progress,
         weight=5.0,
         params=_KP,
+    )
+
+    kp_settle = RewTerm(
+        func=mdp.keypoint_settle,
+        weight=5.0,
+        params={
+            "command_name": "ee_pose",
+            "asset_cfg": SceneEntityCfg("robot", body_names=["wrist_roll_link"]),
+            "cube_side": CUBE_SIDE,
+            "sigma_d": 0.08,
+            "sigma_v": 0.05,
+        },
     )
 
     # --- Base: approach + face target (kept from original) ---
@@ -286,6 +308,7 @@ class KeypointRewardsCfg:
 
     # --- Regularization (reduced arm_weight for more exploration) ---
 
+
     action_rate = RewTerm(
         func=mdp.action_rate_weighted,
         weight=-1.0,
@@ -293,7 +316,7 @@ class KeypointRewardsCfg:
             "asset_cfg": SceneEntityCfg("robot"),
             "arm_joint_names": FETCH_ARM_JOINTS,
             "base_joint_names": ["l_wheel_joint", "r_wheel_joint"],
-            "arm_weight": 1e-5, 
+            "arm_weight": 1e-2, 
             # "base_weight": 1e-2,
             "base_weight": 0,
         },
@@ -334,6 +357,13 @@ class KeypointRewardsCfg:
                 ],
             ),
             "threshold": 1.0,
+        },
+    )
+    joint_torque = RewTerm(
+        func=joint_torques_l2,
+        weight=-1e-4,
+        params={
+            "asset_cfg": SceneEntityCfg("robot", joint_names=FETCH_ARM_JOINTS),
         },
     )
 
@@ -385,7 +415,7 @@ class KeypointCurriculumCfg:
 
 @configclass
 class ReachEnvKeypointCfg(ManagerBasedRLEnvCfg):
-    """Keypoint-based reach env for mobile manipulators."""
+    """Keypoint-based reach env for Fetch."""
 
     scene: KeypointReachSceneCfg = KeypointReachSceneCfg(
         num_envs=4096, env_spacing=2.5,
@@ -396,7 +426,6 @@ class ReachEnvKeypointCfg(ManagerBasedRLEnvCfg):
     events: KeypointEventCfg = KeypointEventCfg()
     rewards: KeypointRewardsCfg = KeypointRewardsCfg()
     terminations: KeypointTerminationsCfg = KeypointTerminationsCfg()
-    # curriculum: KeypointCurriculumCfg = KeypointCurriculumCfg()
     curriculum: KeypointCurriculumCfg = None
 
     def __post_init__(self):
@@ -405,3 +434,18 @@ class ReachEnvKeypointCfg(ManagerBasedRLEnvCfg):
         self.sim.dt = 0.005
         self.sim.render_interval = self.decimation
         self.viewer.eye = (3.5, 3.5, 3.5)
+
+        # Fetch robot
+        # self.scene.robot = FETCH_CFG_IMPLICIT.replace(prim_path="{ENV_REGEX_NS}/Robot")
+        self.scene.robot = FETCH_CFG_PACE.replace(prim_path="{ENV_REGEX_NS}/Robot")
+
+        # Wider joint reset for exploration
+        self.events.reset_robot_joints.params["position_range"] = (-0.5, 0.5)
+
+
+@configclass
+class ReachEnvKeypointCfg_PLAY(ReachEnvKeypointCfg):
+    def __post_init__(self):
+        super().__post_init__()
+        self.scene.env_spacing = 50
+        self.observations.policy.enable_corruption = False

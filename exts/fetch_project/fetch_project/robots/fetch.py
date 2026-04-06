@@ -151,26 +151,25 @@ FETCH_FOLD_CFG.init_state = ArticulationCfg.InitialStateCfg(
 
 
 FETCH_WHEEL_ARMATURE = {
-    "l_wheel_joint": 1.9985375,
-    "r_wheel_joint": 1.4232441,
+    "l_wheel_joint": 0.0560,
+    "r_wheel_joint": 0.0185,
 }
 
-FETCH_WHEEL_VISCOUS_FRICTION = {
-    "l_wheel_joint": 3.1895635,
-    "r_wheel_joint": 3.1029959,
+FETCH_WHEEL_VISCOUS_FRICTION = {  
+    "l_wheel_joint": 0.9636,
+    "r_wheel_joint": 1.0664,
 }
-
 FETCH_WHEEL_FRICTION = {
     "l_wheel_joint": 0.0,
     "r_wheel_joint": 0.0,
 }
 
 FETCH_WHEEL_ENCODER_BIAS = [0.0, 0.0]
-FETCH_WHEEL_MAX_DELAY = 10
+FETCH_WHEEL_MAX_DELAY = 1
 
-FETCH_WHEEL_RADIUS_EFF = 0.05502
-FETCH_WHEEL_SEPARATION_EFF = 0.4197
-FETCH_WHEEL_A_MAX = 4.210
+FETCH_WHEEL_RADIUS_EFF = 0.05529
+FETCH_WHEEL_SEPARATION_EFF = 0.4175
+FETCH_WHEEL_A_MAX = 3.000
 
 # -----------------------------------------------------------------------------
 # PACE identified params (2026-03-18, kp=[400,400,300,300,200,200,200])
