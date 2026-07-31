@@ -76,6 +76,13 @@ class DifferentialDriveAction(ActionTerm):
         self._max_linear = cfg.max_linear_velocity
         self._max_angular = cfg.max_angular_velocity
         
+        # Acceleration limiting
+        self._max_lin_acc = cfg.max_linear_acceleration
+        self._max_ang_acc = cfg.max_angular_acceleration
+        self._dt = env.step_dt
+        self._prev_linear = torch.zeros(self.num_envs, device=self.device)
+        self._prev_angular = torch.zeros(self.num_envs, device=self.device)
+
         # Create action tensors
         self._raw_actions = torch.zeros(self.num_envs, 2, device=self.device)
         self._processed_actions = torch.zeros(self.num_envs, 2, device=self.device)
@@ -117,15 +124,31 @@ class DifferentialDriveAction(ActionTerm):
         
         # Clip to velocity limits
         self._processed_actions[:, 0] = torch.clamp(
-            self._processed_actions[:, 0], 
-            -self._max_linear, 
+            self._processed_actions[:, 0],
+            -self._max_linear,
             self._max_linear
         )
         self._processed_actions[:, 1] = torch.clamp(
-            self._processed_actions[:, 1], 
-            -self._max_angular, 
+            self._processed_actions[:, 1],
+            -self._max_angular,
             self._max_angular
         )
+
+        # Acceleration clamp
+        max_dv = self._max_lin_acc * self._dt
+        max_dw = self._max_ang_acc * self._dt
+        self._processed_actions[:, 0] = torch.clamp(
+            self._processed_actions[:, 0],
+            self._prev_linear - max_dv,
+            self._prev_linear + max_dv,
+        )
+        self._processed_actions[:, 1] = torch.clamp(
+            self._processed_actions[:, 1],
+            self._prev_angular - max_dw,
+            self._prev_angular + max_dw,
+        )
+        self._prev_linear[:] = self._processed_actions[:, 0]
+        self._prev_angular[:] = self._processed_actions[:, 1]
     
     def apply_actions(self):
         v_x = self._processed_actions[:, 0]
@@ -201,10 +224,14 @@ class DifferentialDriveAction(ActionTerm):
             self._raw_actions[:] = 0.0
             self._processed_actions[:] = 0.0
             self._wheel_velocities[:] = 0.0
+            self._prev_linear[:] = 0.0
+            self._prev_angular[:] = 0.0
         else:
             self._raw_actions[env_ids] = 0.0
             self._processed_actions[env_ids] = 0.0
             self._wheel_velocities[env_ids] = 0.0
+            self._prev_linear[env_ids] = 0.0
+            self._prev_angular[env_ids] = 0.0
 
 
 @configclass
@@ -244,6 +271,12 @@ class DifferentialDriveActionCfg(ActionTermCfg):
     
     max_angular_velocity: float = 1.57
     """Maximum angular velocity in rad/s. Real Fetch: ~1.57 rad/s (90 deg/s)."""
+
+    max_linear_acceleration: float = 999.0
+    """Maximum linear acceleration in m/s^2. Set high to effectively disable."""
+
+    max_angular_acceleration: float = 999.0
+    """Maximum angular acceleration in rad/s^2. Set high to effectively disable."""
 
 
 # — Joint position action with EMA smoothing for sim2real —

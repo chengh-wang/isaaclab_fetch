@@ -126,7 +126,7 @@ FETCH_CFG = ArticulationCfg(
             damping=100.0,
         ),
     },
-    soft_joint_pos_limit_factor=1.0,
+    soft_joint_pos_limit_factor=0.85,
 )
 
 FETCH_FOLD_CFG = FETCH_CFG.copy()
@@ -164,7 +164,10 @@ FETCH_WHEEL_FRICTION = {
     "r_wheel_joint": 0.0,
 }
 
-FETCH_WHEEL_ENCODER_BIAS = [0.0, 0.0]
+FETCH_WHEEL_ENCODER_BIAS = {
+    "l_wheel_joint": 0.0,
+    "r_wheel_joint": 0.0,
+}
 FETCH_WHEEL_MAX_DELAY = 1
 
 FETCH_WHEEL_RADIUS_EFF = 0.05529
@@ -270,15 +273,15 @@ FETCH_ARM_FRICTION = {
     "wrist_roll_joint": 0.2037,   # copied from wrist_flex
 }
  
-FETCH_ARM_ENCODER_BIAS = [
-    -0.0069,
-    -0.0025,
-     0.0222,
-     0.0483,
-    -0.0477,
-     0.0492,
-     0.0,       # wrist_roll: no reliable estimate
-]
+FETCH_ARM_ENCODER_BIAS = {
+    "shoulder_pan_joint": -0.0069,
+    "shoulder_lift_joint": -0.0025,
+    "upperarm_roll_joint": 0.0222,
+    "elbow_flex_joint": 0.0483,
+    "forearm_roll_joint": -0.0477,
+    "wrist_flex_joint": 0.0492,
+    "wrist_roll_joint": 0.0,       # no reliable estimate
+}
  
 FETCH_ARM_MAX_DELAY = 1   # ~0.5 physics steps identified
  
@@ -413,6 +416,19 @@ FETCH_CFG_PACE = ArticulationCfg(
         ),
         "fetch_gripper": _GRIPPER_CFG,
         "fetch_head": _HEAD_CFG,
+        "fetch_wheels": PaceDCMotorCfg(
+            joint_names_expr=["l_wheel_joint", "r_wheel_joint"],
+            saturation_effort=26.0,
+            effort_limit=26.0,
+            velocity_limit=16.0,
+            stiffness=0.0,
+            damping=20.0,
+            armature=FETCH_WHEEL_ARMATURE,
+            friction=FETCH_WHEEL_FRICTION,
+            viscous_friction=FETCH_WHEEL_VISCOUS_FRICTION,
+            encoder_bias=FETCH_WHEEL_ENCODER_BIAS,
+            max_delay=FETCH_WHEEL_MAX_DELAY,  # 1, from identified 1.3
+        ),
     },
     soft_joint_pos_limit_factor=1.0,
 )

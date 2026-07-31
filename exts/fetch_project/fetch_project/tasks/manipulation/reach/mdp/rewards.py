@@ -680,6 +680,39 @@ def keypoint_settle(
     return proximity * stillness
 
 
+def base_settle(
+    env: ManagerBasedRLEnv,
+    command_name: str,
+    asset_cfg: SceneEntityCfg,
+    cube_side: float = 0.3,
+    sigma_d: float = 0.08,
+    sigma_v_lin: float = 0.05,
+    sigma_v_ang: float = 0.1,
+) -> torch.Tensor:
+    """Settle reward for the base: be still when EE is near target.
+
+    R = exp(-d_kp / sigma_d) * exp(-||v_lin|| / sigma_v_lin) * exp(-|w_z| / sigma_v_ang)
+
+    Gates on keypoint proximity so the base is free to move during approach
+    but encouraged to stop once the EE is close.
+    """
+    ee_cfg = SceneEntityCfg(asset_cfg.name, body_names=["wrist_roll_link"])
+    ee_cfg.resolve(env.scene)
+    ee_p, ee_q, g_p, g_q = _ee_and_goal(env, command_name, ee_cfg)
+    _, mean_d = keypoint_distance(ee_p, ee_q, g_p, g_q, cube_side)
+
+    asset = env.scene[asset_cfg.name]
+    base_lin_vel = asset.data.root_lin_vel_b[:, :2]  # xy only
+    base_lin_speed = torch.norm(base_lin_vel, dim=-1)
+    base_ang_speed = torch.abs(asset.data.root_ang_vel_b[:, 2])  # yaw rate
+
+    proximity = torch.exp(-mean_d / sigma_d)
+    lin_still = torch.exp(-base_lin_speed / sigma_v_lin)
+    ang_still = torch.exp(-base_ang_speed / sigma_v_ang)
+
+    return proximity * lin_still * ang_still
+
+
 def keypoint_metrics(
     env: ManagerBasedRLEnv,
     command_name: str,

@@ -161,9 +161,12 @@ class KeypointMetricsWrapper:
         infos["log"]["Debug/joints_at_limit_mean"] = (at_lower + at_upper).mean().item()
 
         # --- 7. NaN/Inf check ---
-        # obs may be a TensorDict, so check each value tensor
-        if hasattr(obs, 'values'):
-            has_nan_obs = any(torch.isnan(v).any().item() or torch.isinf(v).any().item() for v in obs.values())
+        # obs may be a TensorDict or dict, so check each value tensor
+        if isinstance(obs, (dict,)) or hasattr(obs, "keys"):
+            has_nan_obs = any(
+                torch.isnan(obs[k]).any().item() or torch.isinf(obs[k]).any().item()
+                for k in obs.keys()
+            )
         else:
             has_nan_obs = torch.isnan(obs).any().item() or torch.isinf(obs).any().item()
         has_nan_rew = torch.isnan(rew).any().item() or torch.isinf(rew).any().item()
